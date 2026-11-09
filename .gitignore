@@ -107,9 +107,10 @@ __pycache__/
 
 # Local setup and outputs
 board.json
-runs/
+runs
 
 # Raw photos and videos (too large for git)
-pictures/
+pictures
+recordings
 *.mov
 *.HEIC

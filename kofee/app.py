@@ -282,8 +282,9 @@ class App:
                 return
             action = cmd["action"]
             if action == "calibrate":
-                if cmd.get("corners"):
-                    self.calibrate(cmd["corners"])
+                if cmd.get("corners") and self.frame is not None:
+                    fh, fw = self.frame.shape[:2]
+                    self.calibrate([(x * fw, y * fh) for x, y in cmd["corners"]])
                 else:
                     self.clicks, self.state = [], State.CALIBRATE
             elif self.state is State.CALIBRATE:
@@ -451,6 +452,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    args.runs = str(Path(args.runs).resolve())  # runs/ may be a symlink into Google Drive
     hub = None
     if not args.no_server:
         hub = Hub()

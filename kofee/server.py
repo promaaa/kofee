@@ -23,7 +23,7 @@ ACTIONS = {"start", "done", "reset", "calibrate"}
 
 class Command(BaseModel):
     action: str  # start | done | reset | calibrate
-    corners: list[list[float]] | None = None  # calibrate: 4 points in camera pixels
+    corners: list[list[float]] | None = None  # calibrate: 4 points, normalised to the camera image (0..1)
 
 INDEX_HTML = """<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
