@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import queue
+import sys
 import time
 from collections import deque
 from enum import Enum
@@ -452,6 +453,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    sys.stdout.reconfigure(line_buffering=True)
     args.runs = str(Path(args.runs).resolve())  # runs/ may be a symlink into Google Drive
     hub = None
     if not args.no_server:
