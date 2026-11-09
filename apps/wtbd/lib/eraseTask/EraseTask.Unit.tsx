@@ -1,0 +1,14 @@
+import { type cnst, usePage } from "@apps/wtbd/client";
+import type { ModelProps } from "akanjs/client";
+import { Link } from "akanjs/ui";
+
+export const Card = ({ eraseTask, href }: ModelProps<"eraseTask", cnst.LightEraseTask>) => {
+  const { l } = usePage();
+  return (
+    <Link href={href} className="w-full">
+      <div>
+        {l("eraseTask.name")}: {eraseTask.name}
+      </div>
+    </Link>
+  );
+};
