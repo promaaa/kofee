@@ -91,7 +91,7 @@ def occluded(rect: np.ndarray, p: Params) -> bool:
     return dark.mean() > p.person_ratio
 
 
-def ink_regions(ink: np.ndarray, min_pixels: int = 25, join_px: int = 6) -> list[tuple[float, float, float, float, int]]:
+def ink_regions(ink: np.ndarray, min_pixels: int = 40, join_px: int = 6) -> list[tuple[float, float, float, float, int]]:
     """Tight boxes around blobs of ink, as (x0, y0, x1, y1) board fractions plus their ink pixel count.
 
     Strokes closer than `join_px` are grouped, so a letter is one box but separate words stay apart:

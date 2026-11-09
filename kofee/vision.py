@@ -13,7 +13,8 @@ from .board import Board
 
 @dataclass
 class Params:
-    ink_dark: int = 10            # ink is at least this much darker (L*, 0-255) than its local background...
+    ink_dark: int = 12            # ink is at least this much darker (L*, 0-255) than its local background...
+    ink_bright_clip: int = 4      # ...measured with everything brighter than the board clipped to its level
     ink_max_warmth: int = 2       # ...and not warmer than it, which rejects the orange light reflections
     ink_min_blueness: float = 1.5 # a stroke counts as blue ink above this mean b* offset (black marks stay below)
     border: float = 0.025         # ignore this fraction of the frame along its edges (black corners, ticks)
@@ -56,9 +57,14 @@ def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
     """
     lab = cv2.cvtColor(rect, cv2.COLOR_BGR2LAB)
     lum, yellow = lab[..., 0], lab[..., 2]
+    valid = valid_mask(*rect.shape[:2], p.border)
+    # Reflections of the ceiling tubes would raise the local background, making the plain board
+    # between two tubes look darker than its surroundings: clip them to the board's level first.
+    level = int(np.median(lum[valid]))
+    background = cv2.medianBlur(np.minimum(lum, level + p.ink_bright_clip).astype(np.uint8), 31)
     blueness = cv2.medianBlur(yellow, 31).astype(np.int16) - yellow
-    dark = cv2.medianBlur(lum, 31).astype(np.int16) - lum > p.ink_dark
-    candidate = dark & (blueness >= -p.ink_max_warmth) & valid_mask(*rect.shape[:2], p.border)
+    dark = background.astype(np.int16) - lum > p.ink_dark
+    candidate = dark & (blueness >= -p.ink_max_warmth) & valid
     n, strokes = cv2.connectedComponents(cv2.dilate(candidate.astype(np.uint8), _STROKE_KERNEL), connectivity=8)
     ids = strokes[candidate]
     count = np.maximum(np.bincount(ids, minlength=n), 1)
