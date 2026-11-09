@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
-from kofee.app import App, State, build_parser
+from kofee.standalone.app import App, State, build_parser
 from kofee.board import Board, find_ticks
 from kofee.vision import Params, cell_ratios, ink_mask
 

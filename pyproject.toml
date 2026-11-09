@@ -1,7 +1,7 @@
 [project]
 name = "kofee"
 version = "0.1.0"
-description = "Embodiment-agnostic whiteboard-cleaning tasks with automatic visual verification."
+description = "Algorithm server for kofee: finds the board and the ink to erase in a camera frame."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,7 +13,9 @@ dependencies = [
 ]
 
 [project.scripts]
-kofee = "kofee.app:main"
+kofee = "kofee.server:main"
+kofee-grid = "kofee.grid:main"
+kofee-standalone = "kofee.standalone.app:main"
 
 [dependency-groups]
 dev = [

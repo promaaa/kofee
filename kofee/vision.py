@@ -13,9 +13,9 @@ from .board import Board
 
 @dataclass
 class Params:
-    ink_dark: int = 18            # ink is at least this much darker (L*, 0-255) than its local background...
+    ink_dark: int = 10            # ink is at least this much darker (L*, 0-255) than its local background...
     ink_max_warmth: int = 2       # ...and not warmer than it, which rejects the orange light reflections
-    ink_min_blueness: float = 2.0 # a stroke counts as blue ink above this mean b* offset (black marks stay < 2)
+    ink_min_blueness: float = 1.5 # a stroke counts as blue ink above this mean b* offset (black marks stay below)
     border: float = 0.025         # ignore this fraction of the frame along its edges (black corners, ticks)
     clean_ratio: float = 0.0025   # a cell is clean when less than this fraction of it is ink
     person_dark: int = 45         # pixels this much darker than the clear board: a person, an arm, an eraser

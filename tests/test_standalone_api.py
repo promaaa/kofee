@@ -3,7 +3,7 @@
 import numpy as np
 from fastapi.testclient import TestClient
 
-from kofee.server import Hub, create_api
+from kofee.standalone.api import Hub, create_api
 
 
 def test_api_serves_state_images_and_queues_commands(tmp_path):
