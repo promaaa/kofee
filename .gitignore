@@ -99,3 +99,17 @@ libs/*/client.ts
 libs/*/server.ts
 libs/*/index.ts
 **/tsconfig.tsbuildinfo
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local setup and outputs
+board.json
+runs/
+
+# Raw photos and videos (too large for git)
+pictures/
+*.mov
+*.HEIC
