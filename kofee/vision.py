@@ -15,6 +15,7 @@ from .board import Board
 class Params:
     ink_dark: int = 12            # ink is at least this much darker (L*, 0-255) than its local background...
     ink_bright_clip: int = 4      # ...measured with everything brighter than the board clipped to its level
+    glare_above: int = 20         # reflections this much brighter than the board mask ink within 4 px of them
     ink_max_warmth: int = 2       # ...and not warmer than it, which rejects the orange light reflections
     ink_min_blueness: float = 1.5 # a stroke counts as blue ink above this mean b* offset (black marks stay below)
     border: float = 0.025         # ignore this fraction of the frame along its edges (black corners, ticks)
@@ -43,6 +44,7 @@ def subdivide(edges: list[float], k: int) -> list[float]:
 
 
 _STROKE_KERNEL = np.ones((3, 3), np.uint8)
+_GLARE_KERNEL = np.ones((9, 9), np.uint8)
 
 
 def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
@@ -64,7 +66,9 @@ def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
     background = cv2.medianBlur(np.minimum(lum, level + p.ink_bright_clip).astype(np.uint8), 31)
     blueness = cv2.medianBlur(yellow, 31).astype(np.int16) - yellow
     dark = background.astype(np.int16) - lum > p.ink_dark
-    candidate = dark & (blueness >= -p.ink_max_warmth) & valid
+    # Ink beside a glare streak cannot be seen anyway, and the gaps between streaks read as dark.
+    glare = cv2.dilate((lum > level + p.glare_above).astype(np.uint8), _GLARE_KERNEL).astype(bool)
+    candidate = dark & ~glare & (blueness >= -p.ink_max_warmth) & valid
     n, strokes = cv2.connectedComponents(cv2.dilate(candidate.astype(np.uint8), _STROKE_KERNEL), connectivity=8)
     ids = strokes[candidate]
     count = np.maximum(np.bincount(ids, minlength=n), 1)

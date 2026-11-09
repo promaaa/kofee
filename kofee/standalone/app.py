@@ -127,6 +127,7 @@ class App:
     def process(self, frame: np.ndarray, now: float) -> None:
         """One perception + decision step (separate from the window so it can be tested)."""
         self.frame = frame
+        self.follow_camera(now)
         self.rect = self.board.rectify(frame)
         self.recent.append(self.rect)
         self.ink = ink_mask(self.rect, self.p)
@@ -265,6 +266,25 @@ class App:
         corners = find_corners(self.frame)
         if corners is not None:
             self.calibrate(corners)
+
+    def follow_camera(self, now: float) -> None:
+        """Once a second, look for the marks again and re-aim the board if the camera has moved.
+
+        The job in progress is kept: only the geometry changes.
+        """
+        if now - self.t_auto < 1.0 or self.monitor.occupied:
+            return
+        self.t_auto = now
+        corners = find_corners(self.frame)
+        if corners is None:
+            return
+        moved = np.abs(order_corners(corners) - self.board.corners).max()
+        if moved > 0.01 * self.frame.shape[1]:
+            self.board = Board(order_corners(corners), self.board.size_mm, self.board.col_edges, self.board.row_edges)
+            self.board.save(self.board_path)
+            self.monitor = SceneMonitor(self.p)
+            self.recent.clear()
+            print(f"camera moved by {moved:.0f} px: board re-aimed", flush=True)
 
     def calibrate(self, corners_px) -> None:
         """Build the board from the 4 frame corners (camera pixels) and read the graduation ticks."""
