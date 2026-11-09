@@ -31,6 +31,14 @@ def valid_mask(h: int, w: int, border: float) -> np.ndarray:
     return mask
 
 
+def subdivide(edges: list[float], k: int) -> list[float]:
+    """Split every interval of a grid into k equal parts (the fine heatmap grid)."""
+    out = []
+    for a, b in zip(edges, edges[1:]):
+        out += [a + (b - a) * i / k for i in range(k)]
+    return out + [edges[-1]]
+
+
 def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
     """Pixels covered by marker ink: darker than their surroundings and not orange.
 
@@ -44,15 +52,31 @@ def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
     return dark & not_warm & valid_mask(*rect.shape[:2], p.border)
 
 
+def grid_ratios(mask: np.ndarray, col_edges: list[float], row_edges: list[float], border: float = 0.0) -> np.ndarray:
+    """Fraction of each cell of a (possibly non-uniform) grid covered by `mask`, as a rows x cols array.
+
+    Uses integral images, so a 32 x 16 heatmap costs about as much as a single cell.
+    """
+    h, w = mask.shape[:2]
+    valid = valid_mask(h, w, border)
+    hits = cv2.integral((mask & valid).astype(np.uint8))
+    area = cv2.integral(valid.astype(np.uint8))
+    xs = np.round(np.asarray(col_edges) * w).astype(int)
+    ys = np.round(np.asarray(row_edges) * h).astype(int)
+
+    def box_sums(ii: np.ndarray) -> np.ndarray:
+        return (
+            ii[np.ix_(ys[1:], xs[1:])] - ii[np.ix_(ys[:-1], xs[1:])] - ii[np.ix_(ys[1:], xs[:-1])] + ii[np.ix_(ys[:-1], xs[:-1])]
+        ).astype(np.float64)
+
+    a = box_sums(area)
+    return np.divide(box_sums(hits), a, out=np.zeros_like(a), where=a > 0)
+
+
 def cell_ratios(mask: np.ndarray, board: Board, p: Params) -> dict[str, float]:
-    """Fraction of each cell's visible area covered by ink."""
-    valid = valid_mask(*mask.shape[:2], p.border)
-    ratios = {}
-    for cell in board.cells:
-        x0, y0, x1, y1 = cell.px
-        n = int(valid[y0:y1, x0:x1].sum())
-        ratios[cell.id] = float(mask[y0:y1, x0:x1].sum()) / n if n else 0.0
-    return ratios
+    """Fraction of each cell's visible area covered by ink, keyed by cell id."""
+    grid = grid_ratios(mask, board.col_edges, board.row_edges, p.border)
+    return {cell.id: float(r) for cell, r in zip(board.cells, grid.ravel())}
 
 
 _PERSON_KERNEL = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
@@ -70,6 +94,7 @@ class SceneMonitor:
         self.reference: np.ndarray | None = None  # board as last seen clear, half resolution
         self.previous: np.ndarray | None = None
         self.clear_since: float | None = None
+        self.blobs: np.ndarray | None = None  # where people are, half resolution
         self.person = 0.0
         self.motion = 0.0
 
@@ -80,8 +105,8 @@ class SceneMonitor:
         if self.reference is None:
             self.reference = grey.copy()
         dark = ((self.reference - grey) > self.p.person_dark).astype(np.uint8)
-        dark = cv2.morphologyEx(dark, cv2.MORPH_OPEN, _PERSON_KERNEL)
-        self.person = float(dark[valid].mean())
+        self.blobs = cv2.morphologyEx(dark, cv2.MORPH_OPEN, _PERSON_KERNEL).astype(bool)
+        self.person = float(self.blobs[valid].mean())
         if self.previous is not None:
             self.motion = float((np.abs(grey - self.previous) > 18)[valid].mean())
         self.previous = grey
