@@ -1,110 +1,79 @@
-# kofee
+# NUNCHI
 
-**One task interface for any embodiment, and a camera that checks the result.**
+**One task interface for any embodiment, and a camera that checks the result: the two things a robot data flywheel needs.**
 
-Robot-learning data flywheels stall on two problems. Every robot speaks its own action language, so
-tasks and data do not transfer across embodiments. And someone has to look at every attempt to say
-whether it worked. kofee is a small, physical demo of both fixes, built at the Compiled 17 hackathon.
+Built in five hours at [c0mpiled-17 Seoul](https://luma.com/compiled-8lsr), track *New Operating Systems for the Physical World*. Code name `kofee`.
 
-A whiteboard has to be kept clean. A camera watches it. Anything written in blue is dirt. The system
-turns what it sees into tasks such as *"erase cell C2"*, expressed only in board coordinates, and
-dispatches them to whoever is available. In the demo the robots are people with a phone, each one a
-different embodiment with a different tool. Nobody tells the system whether a task succeeded: the
-next camera frame does. Every attempt comes back labelled, which is exactly what a flywheel needs.
+![Blue ink on the board becomes dirty cells B1 to E2](docs/img/dirty.jpg)
 
-## The board
+## Why
 
-| Mark | Meaning |
+Tesla keeps retraining its self-driving model on data from its own cars: a data flywheel. Robots don't have one, for two reasons:
+
+1. **Every robot speaks its own action language**, so tasks and data don't transfer from one body to another.
+2. **Someone has to check every attempt** to say whether it worked.
+
+## What it does
+
+A glass whiteboard must be kept clean, and a camera watches it. Anything written in **blue** is dirt.
+
+- **One task, any body.** A dirty cell becomes a task written only in board coordinates, with its own success test (`erase C2`, ink < 0.25 %). Each embodiment gets it in its own language: *"Marc, erase cell C2."* spoken to a person, `arm.wipe(x=…mm, y=…mm, passes=…)` for a robot arm.
+- **No human checks.** Nobody reports success. The first clear frame after the attempt decides: pass, or retry handed to the next embodiment (up to 3 attempts).
+- **Every attempt is a labeled episode.** Who did it, how long it took, before/after crops and the verdict go to `runs/<session>/episodes.jsonl`.
+
+We had no robots at the hackathon, so we were the robots: two people, two tools (eraser, tissue), the same tasks.
+
+| Someone at the board: the scan is skipped | First clear frame: verified |
 | --- | --- |
-| Four black **L tape marks** | The frame. Their inner elbows define board coordinates, found in every frame. |
-| Black **ticks** along the edges | The 8 x 4 grid of cells (`A1` ... `H4`) that humans, phones and the server share. |
-| **Blue** marker | Dirt to erase. Black ink is never dirt. |
+| ![Occluded frame, scan skipped](docs/img/occluded.jpg) | ![Board verified clean](docs/img/clean.jpg) |
 
 ## How it works
 
+Per frame, stateless, about 30 ms for a 960 px frame on a laptop CPU ([`kofee/analyze.py`](kofee/analyze.py)):
+
+1. **Frame**: find the four black L tape marks. A hidden mark, or a quadrilateral that disagrees with the marks' arms, makes the frame unusable.
+2. **Rectify** to a top-down view with the homography of the four elbows.
+3. **Occlusion guard**: a large dark region is a person or an eraser, so the scan is skipped and no task is judged through a sweater.
+4. **Ink**: darker than its local background, ceiling-light reflections and glare streaks clipped, specks under 40 px ignored. Colour is decided per stroke, so the black frame, ticks and labels are never dirt.
+5. **Cells**: one tight box per blob, mapped onto the hand-drawn 8 × 4 grid (`A1` … `H4`, measured in [`grid.json`](grid.json)).
+
 ```mermaid
 sequenceDiagram
-    participant M as Monitor (browser + camera)
-    participant W as wtbd (TypeScript app server)
-    participant A as Algorithm server (Python, this repo's kofee/)
-    participant E as Eraser (phone)
+    participant C as Camera
+    participant A as Algorithm server (kofee/)
+    participant P as Planner (wtbd or standalone)
+    participant E as Embodiment (person or robot)
     loop about once per second
-        M->>W: camera frame (JPEG)
-        W->>A: POST /analyze
-        A-->>W: board corners + boxes of ink
-        W->>W: boxes to cells, create, cancel or judge tasks
+        C->>A: frame
+        A-->>P: board corners + ink boxes
     end
-    W->>E: "erase C2"
-    E->>W: Done
-    Note over W,A: the first clear frame after Done decides: success, retry, or failed
+    P->>E: "erase C2" in its own language
+    E-->>P: attempt
+    Note over A,P: first clear frame decides: pass, retry or give up
 ```
-
-- **`apps/wtbd`**: the app server ([Akan.js](https://github.com/akan-team/akanjs) on Bun). It owns
-  boards, cells and erase tasks, and serves the Monitor and Eraser pages.
-- **`kofee/`**: the stateless algorithm server. One JPEG in, `{corners, regions}` out.
-- **[`protocol/algorithm-server.md`](protocol/algorithm-server.md)**: the contract between the two.
 
 ## Run it
 
-Algorithm server, on the machine that wtbd can reach:
-
 ```bash
 uv sync
-uv run kofee --grid grid.json      # prints the VISION_API_URL to give wtbd
+uv run kofee-standalone --agents Marc:eraser,Kangmin:tissue   # the demo: webcam, planner, voice, episode log
+uv run pytest                                                  # tests on synthetic frames
 ```
 
-App server, from the repo root:
+Full stack with the phone app ([Akan.js](https://github.com/akan-team/akanjs) on Bun):
 
 ```bash
-bun install
-VISION_API_URL=http://<algorithm-host>:8000 bun run dev
+uv run kofee --grid grid.json                                  # algorithm server, prints VISION_API_URL
+bun install && VISION_API_URL=http://<host>:8000 bun run dev   # app server: Monitor and Eraser pages
 ```
 
-`grid.json` holds where the ticks really are on our board. wtbd lays a uniform grid over board space,
-so the server reports boxes through a piecewise-linear map that makes wtbd's cells line up with the
-ticks drawn by hand. After redrawing the ticks, measure them again from a clear photo:
-`uv run kofee-grid photo.jpg`.
-
-Tests: `uv run pytest`.
-
-## The algorithm
-
-Per frame, with no state carried between frames (`kofee/analyze.py`):
-
-1. **Frame**: find the four L marks (`kofee/marks.py`). Grey blobs with the shape of an L, classified
-   ┏ ┓ ┛ ┗ by which sides of their box they fill, then the most consistent quadrilateral. If a mark is
-   hidden, the scan is unusable (`corners: null`): someone is in the way.
-2. **Rectify** the frame to a top-down view of the board with the homography of the four elbows.
-3. **Occlusion guard**: a large region far darker than the board is a person, an arm or an eraser.
-   That scan is unusable too, so a task is never judged through someone's sweater.
-4. **Ink** (`kofee/vision.py`): pixels darker than their local background and not orange, which
-   rejects the reflections of the ceiling lights on the glass. Colour is then decided per stroke,
-   because thin strokes lose their colour to the camera's chroma subsampling: averaged over a whole
-   stroke, blue ink stays measurably blue while the black frame, ticks and labels stay neutral.
-5. **Boxes**: one tight box per letter-sized blob, so ink never spills into a neighbouring cell.
-
-It runs in about 30 ms per 960 px frame on a laptop CPU.
-
-## Standalone mode
-
-`uv run kofee-standalone` runs the whole loop in one process with no wtbd: webcam, planner, automatic
-verification, spoken instructions, an episode log in `runs/`, and a dashboard with a 32 x 16 ink
-heatmap. It is the fallback for the demo and the quickest way to tune the vision. Its HTTP API is
-described in [`docs/standalone-api.md`](docs/standalone-api.md).
-
-## Layout
+After redrawing the grid ticks, measure them again from a clear photo: `uv run kofee-grid photo.jpg`.
 
 | Path | Role |
 | --- | --- |
-| `apps/wtbd/` | App server, Monitor and Eraser pages (TypeScript) |
-| `protocol/` | wtbd and algorithm server contract |
-| `kofee/server.py` | Algorithm server: `POST /analyze`, `GET /health` |
-| `kofee/analyze.py` | Frame to corners, occlusion check and ink boxes |
-| `kofee/marks.py` | L-mark detection |
-| `kofee/vision.py` | Ink detection and grids of ink ratios |
-| `kofee/board.py` | Board geometry, rectification, tick detection |
-| `kofee/grid.py` | `kofee-grid`: measure the ticks from a photo |
-| `kofee/standalone/` | All-in-one fallback mode |
-| `tests/` | Protocol and standalone tests on synthetic frames |
+| [`kofee/`](kofee/) | Vision: L marks, rectification, occlusion guard, ink, grid |
+| [`kofee/standalone/`](kofee/standalone/) | All-in-one demo: task interface, planner, verifier, episode log ([API](docs/standalone-api.md)) |
+| [`apps/wtbd/`](apps/wtbd/) | App server, Monitor and Eraser pages |
+| [`protocol/`](protocol/algorithm-server.md) | Contract between the app server and the algorithm server |
 
 Team: [promaaa](https://github.com/promaaa) and [aka-bassman](https://github.com/aka-bassman).
