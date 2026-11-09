@@ -1,1 +1,1 @@
-export { type JellyButtonVariants, jellyButtonRecipe } from "./jellyButton";
+export { type SurfaceVariants, surfaceRecipe } from "./surface";

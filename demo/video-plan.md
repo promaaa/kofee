@@ -5,8 +5,9 @@
 - **Frame:** our answer to YC RFS "New Operating Systems for the Physical World".
 - **Hard rule:** every product shot is a real capture. A generated shot appears once, carries a label and reads as the future.
 
-Facts this plan relies on (from the module notes and constants): the board is 120 × 60 cm, cut into an 8 × 4 grid of 15 cm
-cells (columns A–H, rows 1–4). A cell turns dirty after 3 usable scans in a row. A verdict waits for a scan at least 1.5 s
+Facts this plan relies on (from the module notes and constants): the board is 112 × 49 cm, cut into an 8 × 4 grid of 14 × 12 cm
+cells (columns A–H, rows 1–4). The monitor scans as fast as the pipeline allows (5 per second at least), and a cell
+turns dirty after reading dirty for 1 s. A verdict waits for a scan at least 1.5 s
 after Done. There are at most 3 attempts, and a job can fail as still dirty, can't reach or timeout.
 
 **Hero cell: C2** (label `C2 · 38 cm, 23 cm`). In the reference photo, C2 sits clear of both the ceiling hotspots (around

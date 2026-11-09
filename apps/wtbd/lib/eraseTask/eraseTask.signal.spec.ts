@@ -1,25 +1,22 @@
-import * as boardSpec from "../board/board.signal.spec";
-import * as cnst from "../cnst";
+import * as boardSpec from "../_board/board.signal.spec";
+import type * as cnst from "../cnst";
 
-export const listTasks = async (agent: boardSpec.BoardAgent): Promise<cnst.LightEraseTask[]> => {
-  return await agent.fetch.eraseTaskListInBoard(agent.board.id);
+export const listTasks = async (fetch: boardSpec.AppFetch): Promise<cnst.LightEraseTask[]> => {
+  return await fetch.eraseTaskListInPublic();
 };
 
-export const taskOfCell = async (
-  agent: boardSpec.BoardAgent,
-  cell: number,
-): Promise<cnst.LightEraseTask | undefined> => {
-  const tasks = await listTasks(agent);
+export const taskOfCell = async (fetch: boardSpec.AppFetch, cell: number): Promise<cnst.LightEraseTask | undefined> => {
+  const tasks = await listTasks(fetch);
   return tasks.find((task) => task.cell === cell && ["pending", "dispatched", "verifying"].includes(task.status));
 };
 
-export const dirtyBoard = async (cells: number[]): Promise<boardSpec.BoardAgent> => {
-  const agent = await boardSpec.createBoard();
-  for (const cell of cells) await agent.fetch.setMockDirt(agent.board.id, cell, true);
-  await boardSpec.submitFrames(agent, cnst.Board.stableScans);
-  return agent;
+export const dirtyBoard = async (cells: number[]): Promise<boardSpec.AppFetch> => {
+  const fetch = await boardSpec.resetBoard();
+  for (const cell of cells) await fetch.setMockDirt(cell, true);
+  await boardSpec.submitStableFrames(fetch);
+  return fetch;
 };
 
 export const waitForSettle = async (): Promise<void> => {
-  await Bun.sleep(cnst.EraseTask.settleMs + 100);
+  await Bun.sleep(1_600);
 };

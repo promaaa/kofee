@@ -12,16 +12,23 @@ const vibrationOf: { [key in Feedback]: number[] } = {
   failed: [500],
 };
 
-export const useEraseVerdict = (boardId: string, phrases: { [key in Feedback]: string }) => {
+const speak = (phrase: string, lang: string) => {
+  // WebKit drops an utterance queued right after cancel(), so cancel only what is still playing
+  if (speechSynthesis.speaking) speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(phrase);
+  utterance.lang = lang === "ko" ? "ko-KR" : "en-US";
+  speechSynthesis.speak(utterance);
+};
+
+export const useEraseVerdict = (lang: string, phrases: { [key in Feedback]: string }) => {
   const [verdict, setVerdict] = useState<cnst.EraseTask | null>(null);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const unsubscribe = fetch.subscribeEraseFeedback(boardId, (task) => {
+    const unsubscribe = fetch.subscribeEraseFeedback((task) => {
       if (!task.feedback) return;
       setVerdict(task);
       navigator.vibrate?.(vibrationOf[task.feedback]);
-      speechSynthesis.cancel();
-      speechSynthesis.speak(new SpeechSynthesisUtterance(phrases[task.feedback]));
+      speak(phrases[task.feedback], lang);
       clearTimeout(timer);
       timer = setTimeout(() => setVerdict(null), 2_500);
     });
@@ -29,10 +36,7 @@ export const useEraseVerdict = (boardId: string, phrases: { [key in Feedback]: s
       unsubscribe();
       clearTimeout(timer);
     };
-  }, [boardId]);
-  const unlockVoice = (phrase: string) => {
-    speechSynthesis.cancel();
-    speechSynthesis.speak(new SpeechSynthesisUtterance(phrase));
-  };
+  }, [lang]);
+  const unlockVoice = (phrase: string) => speak(phrase, lang);
   return { verdict, unlockVoice };
 };

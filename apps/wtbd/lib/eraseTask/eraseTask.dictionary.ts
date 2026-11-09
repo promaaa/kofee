@@ -15,7 +15,6 @@ export const dictionary = modelDictionary(["en", "ko"])
     t(["Erase Task", "지우기 작업"]).desc(["One grid cell the eraser must clean", "지우개가 지워야 할 그리드 한 칸"]),
   )
   .model<EraseTask>((t) => ({
-    boardId: t(["Board", "보드"]).desc(["The board the cell is on", "칸이 속한 보드"]),
     cell: t(["Cell", "칸"]).desc(["Grid cell index, row * cols + col", "그리드 칸 번호 (행 * 열 수 + 열)"]),
     target: t(["Target", "목표 영역"]).desc(["The area to erase", "지울 영역"]),
     status: t(["Status", "상태"]).desc(["Where the task is in its lifecycle", "작업 진행 단계"]),
@@ -33,16 +32,21 @@ export const dictionary = modelDictionary(["en", "ko"])
     reportedAt: t(["Reported At", "완료 보고 시각"]).desc(["When the eraser tapped Done", "지우개가 완료를 누른 시각"]),
     resolvedAt: t(["Resolved At", "종료 시각"]).desc(["When the task ended", "작업이 끝난 시각"]),
   }))
-  .insight<EraseTaskInsight>((t) => ({}))
+  .insight<EraseTaskInsight>((t) => ({
+    attempts: t(["Attempts", "시도 합계"]).desc(["Dispatches summed over the tasks", "작업들의 배정 횟수 합계"]),
+  }))
   .query<EraseTaskFilter>((fn) => ({
-    inBoard: fn(["In Board", "보드별"]).arg((t) => ({
-      boardId: t(["Board", "보드"]),
+    open: fn(["Open", "진행 중 작업"]),
+    failedSince: fn(["Failed Since", "최근 실패 작업"]).arg((t) => ({
+      since: t(["Since", "기준 시각"]),
     })),
-    openInBoard: fn(["Open In Board", "보드의 진행 중 작업"]).arg((t) => ({
-      boardId: t(["Board", "보드"]),
+    createdSince: fn(["Created Since", "이후 생성된 작업"]).arg((t) => ({
+      since: t(["Since", "기준 시각"]),
     })),
-    failedInBoardSince: fn(["Failed In Board Since", "보드의 최근 실패 작업"]).arg((t) => ({
-      boardId: t(["Board", "보드"]),
+    dispatchedSince: fn(["Dispatched Since", "이후 배정된 작업"]).arg((t) => ({
+      since: t(["Since", "기준 시각"]),
+    })),
+    stillDirtySince: fn(["Still Dirty Since", "이후 지워지지 않은 작업"]).arg((t) => ({
       since: t(["Since", "기준 시각"]),
     })),
     dispatchedBefore: fn(["Dispatched Before", "이전에 배정된 작업"]).arg((t) => ({
@@ -62,7 +66,10 @@ export const dictionary = modelDictionary(["en", "ko"])
     verifying: t(["Verifying", "확인 중"]).desc(["The camera is checking the cell", "카메라가 칸을 확인하는 중"]),
     succeeded: t(["Succeeded", "성공"]).desc(["The cell reads clean", "칸이 깨끗하게 확인됨"]),
     failed: t(["Failed", "실패"]).desc(["The eraser gave up or ran out of attempts", "포기했거나 시도 횟수를 모두 씀"]),
-    canceled: t(["Canceled", "취소됨"]).desc(["The cell became clean on its own", "칸이 저절로 깨끗해짐"]),
+    canceled: t(["Canceled", "취소됨"]).desc([
+      "The cell became clean on its own, or the board was reset",
+      "칸이 저절로 깨끗해졌거나 보드가 초기화됨",
+    ]),
   }))
   .enum<EraseFeedback>("eraseFeedback", (t) => ({
     success: t(["Success", "성공"]).desc(["The cell is clean", "칸이 깨끗합니다"]),
@@ -78,11 +85,7 @@ export const dictionary = modelDictionary(["en", "ko"])
     timeout: t(["Timed Out", "시간 초과"]).desc(["No report within the time limit", "제한 시간 안에 보고 없음"]),
   }))
   .slice<EraseTaskSlice>((fn) => ({
-    inBoard: fn(["Tasks In Board", "보드의 작업"])
-      .desc(["Every erase task of a board, kept live", "보드의 모든 지우기 작업 (실시간 갱신)"])
-      .arg((t) => ({
-        boardId: t(["Board", "보드"]).desc(["The board to list tasks for", "작업을 볼 보드"]),
-      })),
+    inPublic: fn(["Erase Log", "지우기 기록"]).desc(["Every erase task, kept live", "모든 지우기 작업 (실시간 갱신)"]),
   }))
   .endpoint<EraseTaskEndpoint>((fn) => ({
     reportErased: fn(["Report Erased", "지우기 완료 보고"])
@@ -98,18 +101,19 @@ export const dictionary = modelDictionary(["en", "ko"])
       .arg((t) => ({
         eraseTaskId: t(["Erase Task", "지우기 작업"]).desc(["The dispatched task", "배정된 작업"]),
       })),
-    eraseFeedback: fn(["Erase Feedback", "지우기 피드백"])
-      .desc(["Each verdict sent to a board's eraser", "보드의 지우개에 보내는 판정"])
-      .arg((t) => ({
-        boardId: t(["Board", "보드"]).desc(["The board to listen to", "들을 보드"]),
-      })),
+    eraseFeedback: fn(["Erase Feedback", "지우기 피드백"]).desc([
+      "Each verdict sent to the eraser",
+      "지우개에 보내는 판정",
+    ]),
   }))
   .error({
-    notPending: ["Only a pending task can be dispatched or canceled", "대기 중인 작업만 배정하거나 취소할 수 있습니다"],
+    notPending: ["Only a pending task can be dispatched", "대기 중인 작업만 배정할 수 있습니다"],
+    notOpen: ["This task has already ended", "이미 끝난 작업입니다"],
     notDispatched: ["This task is not waiting for the eraser", "이 작업은 지우개를 기다리는 중이 아닙니다"],
     notVerifiable: ["This task cannot be judged yet", "이 작업은 아직 판정할 수 없습니다"],
   })
   .translate({
+    eraserTitle: ["Eraser", "지우개"],
     eraserStartShift: ["Start shift", "작업 시작"],
     eraserReady: ["Ready", "준비 완료"],
     eraserQueued: ["Queued", "대기"],

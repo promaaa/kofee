@@ -1,4 +1,4 @@
-import { type Dayjs, dayjs, ID } from "akanjs/base";
+import { type Dayjs, dayjs } from "akanjs/base";
 import { by, from, into } from "akanjs/document";
 
 import * as cnst from "../cnst";
@@ -6,16 +6,19 @@ import { Err } from "../dict";
 
 export class EraseTaskFilter extends from(cnst.EraseTask, (filter) => ({
   query: {
-    inBoard: filter()
-      .arg("boardId", ID)
-      .query((boardId) => ({ boardId })),
-    openInBoard: filter()
-      .arg("boardId", ID)
-      .query((boardId, q) => ({ boardId, status: q.oneOf(cnst.EraseTask.openStatuses) })),
-    failedInBoardSince: filter()
-      .arg("boardId", ID)
+    open: filter().query((q) => ({ status: q.oneOf(cnst.EraseTask.openStatuses) })),
+    failedSince: filter()
       .arg("since", Date)
-      .query((boardId, since, q) => ({ boardId, status: "failed", resolvedAt: q.gte(since) })),
+      .query((since, q) => ({ status: "failed", resolvedAt: q.gte(since) })),
+    createdSince: filter()
+      .arg("since", Date)
+      .query((since, q) => ({ createdAt: q.gte(since) })),
+    dispatchedSince: filter()
+      .arg("since", Date)
+      .query((since, q) => ({ dispatchedAt: q.gte(since) })),
+    stillDirtySince: filter()
+      .arg("since", Date)
+      .query((since, q) => ({ status: "failed", failReason: "stillDirty", resolvedAt: q.gte(since) })),
     dispatchedBefore: filter()
       .arg("before", Date)
       .query((before, q) => ({ status: "dispatched", dispatchedAt: q.lte(before) })),
@@ -29,6 +32,10 @@ export class EraseTaskFilter extends from(cnst.EraseTask, (filter) => ({
 export class EraseTask extends by(cnst.EraseTask) {
   isActive() {
     return this.status === "dispatched" || this.status === "verifying";
+  }
+
+  isOpen() {
+    return this.status === "pending" || this.isActive();
   }
 
   canBeJudgedWith(capturedAt: Dayjs) {
@@ -85,9 +92,9 @@ export class EraseTask extends by(cnst.EraseTask) {
     return this;
   }
 
-  // pending -> canceled
+  // pending | dispatched | verifying -> canceled
   cancel() {
-    if (this.status !== "pending") throw new Err("eraseTask.error.notPending");
+    if (!this.isOpen()) throw new Err("eraseTask.error.notOpen");
     this.status = "canceled";
     this.resolvedAt = dayjs();
     return this;

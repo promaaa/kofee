@@ -13,7 +13,7 @@ the algorithm server and the TypeScript app server **wtbd**, plus practical guid
 | Role | What it is | Talks to |
 |---|---|---|
 | Human | Writes on the whiteboard. No software. | nobody |
-| Monitor | Browser page with a camera aimed at the board. Uploads a JPEG about once a second. | wtbd |
+| Monitor | Browser page with a camera aimed at the board. Uploads JPEGs back to back, one in flight, as fast as the camera and the pipeline allow. | wtbd |
 | wtbd | App server (Akan.js on Bun, TypeScript). Turns dirt into erase tasks on a grid of cells. | Monitor, Eraser, algorithm |
 | Eraser | A person acting as a robot, with a phone that shows which cell to erase. | wtbd |
 | Algorithm server | **You.** Python, stateless, one endpoint. | answers wtbd only |
@@ -25,7 +25,7 @@ sequenceDiagram
     participant W as wtbd (TypeScript)
     participant A as Algorithm server (Python)
     participant E as Eraser (phone)
-    loop about once per second, next frame only after the reply
+    loop as fast as possible (at least 5 per second), next frame only after the reply
         M->>W: upload frame (JPEG)
         W->>A: POST /analyze?boardId=&cols=&rows= (image/jpeg body)
         A-->>W: 200 { corners, regions }
@@ -41,7 +41,7 @@ sequenceDiagram
 
 | What | Direction | Typical size | Rate |
 |---|---|---|---|
-| Camera frame (JPEG, ~960 px wide, quality ~0.7) | Monitor -> wtbd | 60-120 KB | ~1 per second per board |
+| Camera frame (JPEG, ~960 px wide, quality ~0.7) | Monitor -> wtbd | 60-120 KB | 5-60 per second per board |
 | The same bytes, unchanged (no resize, re-encode or rotation) | wtbd -> algorithm | 60-120 KB | at most 1 in flight per board |
 | JSON result | algorithm -> wtbd | under 2 KB (4 corners + a few dozen boxes) | 1 per request |
 
@@ -56,6 +56,9 @@ What wtbd does with your answer, so you know which errors matter:
 - **Judging after Done**: decided by **one** usable scan, the first wtbd received at least 1.5 s after Done.
   Dirty: retry, up to 3 attempts, then failed. Clean: succeeded. A miss on that frame reports a false success, and
   a false positive causes a retry. Accuracy on a clean, unobstructed frame matters most.
+- **Unknown cells** (`unknown` mask, e.g. glare): never dirty in that scan, their streaks hold, and a task waiting
+  for its verdict there is not judged until a later scan can see the cell. When unsure, mark it unknown rather than
+  clean: unknown only delays a verdict, a wrong clean reports a false success.
 - wtbd stamps each frame's time when it arrives, before calling you, so slow analysis never moves a frame to the
   wrong side of a Done report.
 
@@ -65,7 +68,8 @@ Synchronous **HTTP/1.1 request/response**, raw JPEG as the request body, JSON re
 
 - One frame in, one result out, at most one request in flight per board: plain request/response fits exactly.
 - Trivial to test with `curl`, trivial to stub, and works with FastAPI/Flask with no extra dependencies.
-- **Not WebSocket**: needs connection state and reconnect logic, and gains nothing at 1 frame per second.
+- **Not WebSocket**: needs connection state and reconnect logic, and gains little: a keep-alive HTTP round
+  trip through wtbd and the server measured about 17 ms, so the loop is bound by your latency, not the transport.
 - **Not gRPC**: needs `.proto` code generation and an HTTP/2 stack on both sides for a single call.
 - **Not multipart/form-data**: one image needs no boundaries. The metadata fits in the query string, and FastAPI's
   `UploadFile` would also need `python-multipart`.
@@ -76,7 +80,7 @@ Synchronous **HTTP/1.1 request/response**, raw JPEG as the request body, JSON re
 ### 4.1 `POST /analyze`
 
 ```
-POST {VISION_API_URL}/analyze?boardId=665f1c2ab3e4d5f6a7b8c9d0&cols=8&rows=4
+POST {VISION_API_URL}/analyze?boardId=main&cols=8&rows=4
 Content-Type: image/jpeg
 
 <raw JPEG bytes>
@@ -84,11 +88,12 @@ Content-Type: image/jpeg
 
 | Query param | Type | Always sent | Meaning |
 |---|---|---|---|
-| `boardId` | string | yes | Opaque id of the board in wtbd, stable across frames. Use it only for logs or optional caches. |
+| `boardId` | string | yes | Always `main`: wtbd watches exactly one board. Kept so servers built against earlier drafts keep working; use it only for logs. |
 | `cols` | int >= 1 | yes | Grid columns (default 8). **Hint only.** Never needed: wtbd maps boxes to cells itself. |
 | `rows` | int >= 1 | yes | Grid rows (default 4). Hint only. |
 
-**Headers**: `Content-Type: image/jpeg` (`Content-Length` is set automatically). No auth: LAN-only prototype.
+**Headers**: `Content-Type: image/jpeg` (`Content-Length` is set automatically) and `X-Protocol-Version: 1`. No
+auth: LAN-only prototype.
 
 **Body**: the raw JPEG exactly as the Monitor captured it. Read the size from the decoded image: width is about
 960 px, but the height depends on the camera (e.g. 540 or 720).
@@ -98,7 +103,8 @@ Content-Type: image/jpeg
 ```json
 {
   "corners": [[0.060, 0.100], [0.940, 0.091], [0.950, 0.900], [0.050, 0.909]],
-  "regions": [{ "x": 0.27, "y": 0.30, "w": 0.08, "h": 0.15, "score": 0.91 }]
+  "regions": [{ "x": 0.27, "y": 0.30, "w": 0.08, "h": 0.15, "score": 0.91 }],
+  "unknown": [{ "x": 0.12, "y": 0.00, "w": 0.15, "h": 0.20 }]
 }
 ```
 
@@ -115,6 +121,7 @@ Board not found (a person in front of it, camera moved, a mark hidden). This is 
 | `regions[].x`, `.y` | number, 0-1 | Top-left of the box | Clamped to the grid when mapping |
 | `regions[].w`, `.h` | number, 0-1 | Box size | Same |
 | `regions[].score` | number, 0-1, optional | Confidence | Boxes with `score < 0.5` are dropped. Missing or `null` counts as 1. |
+| `unknown` | array, optional | Areas you cannot read (glare, occlusion), as **board** fractions `{x, y, w, h}` | Missing means `[]`. Every cell a box touches is unknown for this scan, and unknown wins over dirt. |
 | any other key | anything | | Ignored |
 
 When `corners` is `null`, send `regions: []`. Regions only make sense relative to a board that was found.
@@ -145,6 +152,16 @@ JSON Schema (draft 2020-12). It describes what you should send, which is slightl
         "h": { "$ref": "#/$defs/fraction" },
         "score": { "anyOf": [{ "$ref": "#/$defs/fraction" }, { "type": "null" }] }
       }
+    },
+    "rect": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "properties": {
+        "x": { "$ref": "#/$defs/fraction" },
+        "y": { "$ref": "#/$defs/fraction" },
+        "w": { "$ref": "#/$defs/fraction" },
+        "h": { "$ref": "#/$defs/fraction" }
+      }
     }
   },
   "properties": {
@@ -154,7 +171,8 @@ JSON Schema (draft 2020-12). It describes what you should send, which is slightl
         { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 4, "maxItems": 4 }
       ]
     },
-    "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } }
+    "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
+    "unknown": { "type": "array", "items": { "$ref": "#/$defs/rect" } }
   }
 }
 ```
@@ -170,17 +188,21 @@ Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
 Point = tuple[Fraction, Fraction]
 
 
-class Region(BaseModel):
+class Rect(BaseModel):
     x: Fraction
     y: Fraction
     w: Fraction
     h: Fraction
+
+
+class Region(Rect):
     score: Fraction | None = None
 
 
 class AnalyzeResponse(BaseModel):
     corners: tuple[Point, Point, Point, Point] | None
     regions: list[Region] = Field(default_factory=list)
+    unknown: list[Rect] = Field(default_factory=list)
 ```
 
 TypeScript (wtbd side, verbatim from `remoteVisionApi.ts`):
@@ -188,17 +210,19 @@ TypeScript (wtbd side, verbatim from `remoteVisionApi.ts`):
 ```ts
 interface AnalyzeResponse {
   corners?: [number, number][] | null;
-  regions?: { x: number; y: number; w: number; h: number; score?: number }[];
+  regions?: (VisionRect & { score?: number })[];
+  unknown?: VisionRect[];
 }
 ```
 
-### 4.2 `GET /health` (**Proposed, not yet called by wtbd**)
+### 4.2 `GET /health`
 
 ```
 GET /health  ->  200 {"status": "ok", "version": "0.1.0"}
 ```
 
-Useful right away for `curl` checks and monitoring. wtbd does not call it today; see section 12.
+wtbd calls it once at startup when `VISION_API_URL` is set and logs a warning when it fails or answers non-2xx. It
+never blocks boot: frames simply scan as unusable until the server answers.
 
 ## 5. Coordinate systems
 
@@ -328,7 +352,10 @@ Rules for the Python side:
 | Hard limit | **3 s**. wtbd aborts the request and the frame is unusable. |
 | Concurrency | at most 1 request per board in flight; different boards may overlap |
 
-Keep the loop near 1 fps: the frame period is the Monitor interval plus upload time plus your latency.
+The Monitor sends the next camera frame as soon as the previous reply lands (it encodes the next frame while it
+waits), so your latency sets the detection rate: 200 ms is the 5 fps floor, and every millisecond saved is a
+higher rate. At 960 x 540 the current server answers in about 16 ms, about 60 fps. Per-frame work that only feeds
+`/debug/board.jpg` (annotate, encode, print) is part of that budget.
 
 **Statelessness.** Each request must be answerable from its own bytes. wtbd restarts, dropped frames and a Python
 restart must never change results. Per-board state keyed by `boardId` is optional and may only make things faster,
@@ -359,8 +386,8 @@ Both are bright, not dark, but they can hide ink.
 5. **Sanity-check the quad**: it must be convex, cover more than ~20% of the frame, and have opposite sides within
    ~30% of each other in length. Otherwise return `null`.
 6. **Warp**: `M = cv2.getPerspectiveTransform(elbows_px, [(0,0), (W,0), (W,H), (0,H)])`, then
-   `cv2.warpPerspective`. Use roughly the board's aspect ratio (wtbd's default board is 120 x 60 cm, so e.g.
-   W x H = 960 x 480). A warped pixel `(u, v)` is board fraction `(u / W, v / H)`.
+   `cv2.warpPerspective`. Use roughly the board's aspect ratio (the L marks enclose about 112 x 49 cm, so e.g.
+   W x H = 960 x 420). A warped pixel `(u, v)` is board fraction `(u / W, v / H)`.
 7. **Ink = darker than the local background.** Use `gray = img.min(axis=2)`, so red, blue and green markers all
    look dark on white. Then either
    `cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, 15)` (block size
@@ -398,17 +425,21 @@ Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
 Point = tuple[Fraction, Fraction]
 
 
-class Region(BaseModel):
+class Rect(BaseModel):
     x: Fraction
     y: Fraction
     w: Fraction
     h: Fraction
+
+
+class Region(Rect):
     score: Fraction | None = None
 
 
 class AnalyzeResponse(BaseModel):
     corners: tuple[Point, Point, Point, Point] | None
     regions: list[Region] = Field(default_factory=list)
+    unknown: list[Rect] = Field(default_factory=list)
 
 
 app = FastAPI()
@@ -434,7 +465,7 @@ async def analyze(
     return AnalyzeResponse(corners=FAKE_CORNERS, regions=FAKE_DIRT)
 ```
 
-In wtbd, this stub makes C2 a task after 3 frames and dispatches it. Because the stub never cleans C2, each Done
+In wtbd, this stub makes C2 a task once it has read dirty for 1 s (`BoardGrid.stableMs`) and dispatches it. Because the stub never cleans C2, each Done
 leads to a retry, the task fails after 3 attempts, and C2 is not tasked again for 60 s. Set `FAKE_DIRT = []` to see
 a task succeed. FastAPI's interactive docs are at `http://localhost:8000/docs`.
 
@@ -485,14 +516,13 @@ Networking:
   macOS firewall if prompted.
 - There is no auth and no TLS: keep it on the LAN and never expose it to the internet.
 
-## 11. Versioning (**Proposed**)
+## 11. Versioning
 
-Today wtbd sends no version and checks none; this document describes **v1**.
+This document describes **v1**. wtbd sends `X-Protocol-Version: 1` on every `/analyze` call; it does not read a
+version back yet.
 
-- Proposal: wtbd sends `X-Protocol-Version: 1` on `/analyze`. The algorithm server echoes it as a response header
-  and/or adds `"version": 1` to the JSON body.
-- The Python side may add `"version": 1` to the body **today**: wtbd ignores unknown keys. wtbd just won't read it
-  until section 12 item 2 is done.
+- The algorithm server may echo it as a response header and/or add `"version": 1` to the JSON body; wtbd ignores
+  unknown keys.
 - These stay v1: new optional response fields and new optional query params. These require v2: changing coordinate
   meaning, corner order, required fields or status-code semantics. A server that cannot speak the requested
   version answers `400` with a `detail` message.
@@ -504,26 +534,26 @@ Today wtbd sends no version and checks none; this document describes **v1**.
 - **Ghosting**: should faint residue left by a dry eraser count as dirt? The threshold (`C` or the black-hat cut)
   decides between endless retries and false successes. Agree on it using real frames.
 - **Orientation**: we assume the JPEG arrives upright and not mirrored. Confirm with whoever builds the Monitor.
-- **Glare cells**: a cell permanently under a glare spot reads clean, so erase tasks there "succeed" by default.
-  Either move the light or camera, or adopt item 6 below.
+- **Glare cells**: resolved on the wtbd side by the `unknown` mask (item 6). The algorithm still has to detect glare
+  and report it; a glare spot it misses still reads clean.
 - **Eraser in frame at judge time**: if the marks are visible but the eraser's arm is still over the board, that
   frame can falsely judge "still dirty". The occlusion guard (section 8, step 11) is the cheap fix.
 
 ### Changes needed on the wtbd side
 
-None of these exist today. Additive response fields can be sent by Python early (wtbd ignores unknown keys), but
-they have no effect until wtbd changes.
+Items 1, 2 (sending only) and 6 are **done**; the rest do not exist yet. Additive response fields can be sent by
+Python early (wtbd ignores unknown keys), but they have no effect until wtbd changes.
 
-1. **Call `GET /health`** at startup (and optionally periodically), and log a clear warning when the algorithm
+1. **Done.** **Call `GET /health`** at startup (and optionally periodically), and log a clear warning when the algorithm
    server is unreachable instead of failing frame by frame.
-2. **Send `X-Protocol-Version: 1`** on `/analyze`, and read the response `version` (header or body field), logging
+2. **Sending done, reading not.** **Send `X-Protocol-Version: 1`** on `/analyze`, and read the response `version` (header or body field), logging
    a mismatch.
 3. **Read frame size from the response** (`"frame": {"width": 960, "height": 540}`) to sanity-check the corner
    overlay and log resolution or aspect problems.
-4. **Pass the board's physical size as hints** (`&widthCm=120&heightCm=60`, already stored on the board) so the
+4. **Pass the board's physical size as hints** (`&widthCm=112&heightCm=49`, `BoardGrid` in wtbd) so the
    algorithm can warp at the true aspect ratio.
 5. **Per-region labels** (`"label": "ink" | "residue" | "other"`) plus a wtbd rule for which labels create tasks.
-6. **An unknown/glare mask** (`"unknown": [{x, y, w, h}]` in board space). Cells it covers are neither dirty nor
+6. **Done.** **An unknown/glare mask** (`"unknown": [{x, y, w, h}]` in board space). Cells it covers are neither dirty nor
    clean for that scan: their streaks do not move, and a verifying task in such a cell waits for a later scan.
 7. **A reason for unusable answers** (`"reason": "no_board" | "occluded" | ...` alongside `corners: null`), shown
    on the Monitor and in logs.

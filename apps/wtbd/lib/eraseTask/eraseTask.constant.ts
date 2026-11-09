@@ -1,4 +1,5 @@
-import { enumOf, ID, Int } from "akanjs/base";
+import { BoardGrid } from "@apps/wtbd/common";
+import { enumOf, Int } from "akanjs/base";
 import { via } from "akanjs/constant";
 
 import { BoardRect } from "../__scalar/boardRect/boardRect.constant";
@@ -17,7 +18,6 @@ export class EraseFeedback extends enumOf("eraseFeedback", ["success", "retry", 
 export class EraseFailReason extends enumOf("eraseFailReason", ["stillDirty", "unreachable", "timeout"] as const) {}
 
 export class EraseTaskInput extends via((field) => ({
-  boardId: field(ID),
   cell: field(Int),
   target: field(BoardRect),
 })) {}
@@ -35,11 +35,15 @@ export class EraseTaskObject extends via(EraseTaskInput, (field) => ({
 
 export class LightEraseTask extends via(
   EraseTaskObject,
-  ["boardId", "cell", "target", "status", "feedback", "attempt", "maxAttempts", "dispatchedAt", "resolvedAt"] as const,
+  ["cell", "target", "status", "feedback", "attempt", "maxAttempts", "dispatchedAt", "resolvedAt"] as const,
   (resolve) => ({}),
 ) {
   isActive() {
     return this.status === "dispatched" || this.status === "verifying";
+  }
+
+  cellLabel() {
+    return BoardGrid.cellLabel(this.cell);
   }
 }
 
@@ -50,4 +54,6 @@ export class EraseTask extends via(EraseTaskObject, LightEraseTask, (resolve) =>
   static retaskCooldownMs = 60_000;
 }
 
-export class EraseTaskInsight extends via(EraseTask, (field) => ({})) {}
+export class EraseTaskInsight extends via(EraseTask, (field) => ({
+  attempts: field(Int, { default: 0, accumulate: { $sum: "attempt" } }),
+})) {}

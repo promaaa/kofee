@@ -1,8 +1,7 @@
 "use client";
 import { type cnst, fetch, st, usePage } from "@apps/wtbd/client";
-import { jellyButtonRecipe } from "@apps/wtbd/ui";
 import { cn } from "akanjs/client";
-import { Model } from "akanjs/ui";
+import { buttonRecipe, Model } from "akanjs/ui";
 import { BiTrash } from "react-icons/bi";
 
 interface RemoveProps {
@@ -30,7 +29,10 @@ export const EraserControls = ({ className, eraseTaskId, status }: EraserControl
       <button
         type="button"
         disabled={waiting}
-        className={jellyButtonRecipe({ variant: "primary", size: "xl" }, "h-28 w-full text-4xl")}
+        className={buttonRecipe(
+          { variant: "primary", size: "xl" },
+          "h-28 w-full touch-manipulation rounded-box font-black text-4xl",
+        )}
         onClick={() => st.do.reportErased(eraseTaskId)}
       >
         {l("eraseTask.eraserDone")}
@@ -38,7 +40,7 @@ export const EraserControls = ({ className, eraseTaskId, status }: EraserControl
       <button
         type="button"
         disabled={waiting}
-        className={jellyButtonRecipe({ variant: "ghost", size: "md" }, "w-full")}
+        className={buttonRecipe({ variant: "ghost", size: "md" }, "w-full touch-manipulation text-muted-foreground")}
         onClick={() => st.do.giveUpEraseTask(eraseTaskId)}
       >
         {l("eraseTask.eraserCantReach")}

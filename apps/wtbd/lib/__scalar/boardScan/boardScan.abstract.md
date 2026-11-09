@@ -7,5 +7,7 @@ response and pubsub payload only; scans are never stored.
 
 - A scan is usable only when all four L marks were found. An unusable scan (board blocked, moved, or the algorithm
   unreachable) creates, cancels and judges nothing.
+- A cell covered by the algorithm's `unknown` mask is never dirty in the same scan: unknown wins, so glare can
+  neither create a task nor pass one.
 - `capturedAt` is when the server received the frame, before analysis, so a slow algorithm cannot push a frame
   past an erase report it predates.

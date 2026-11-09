@@ -14,11 +14,10 @@ export class EraseTaskSlice extends slice(
   srv.eraseTask,
   { guards: { root: None, get: Public, cru: None } },
   (init) => ({
-    inBoard: init({ guards: [Public] })
-      .param("boardId", String)
+    inPublic: init({ guards: [Public] })
       .live()
-      .exec(function (boardId) {
-        return this.eraseTaskService.queryInBoard(boardId);
+      .exec(function () {
+        return this.eraseTaskService.queryAny();
       }),
   }),
 ) {}
@@ -42,7 +41,5 @@ export class EraseTaskEndpoint extends endpoint(srv.eraseTask, ({ mutation, pubs
       return await this.eraseTaskService.giveUpEraseTask(eraseTaskId);
     }),
 
-  eraseFeedback: pubsub(cnst.EraseTask, { guards: [Public] })
-    .room("boardId", String)
-    .exec(() => {}),
+  eraseFeedback: pubsub(cnst.EraseTask, { guards: [Public] }).exec(() => {}),
 })) {}

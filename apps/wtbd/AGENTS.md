@@ -15,5 +15,5 @@ boolean flag. Do not guess recipe names or import paths; this index is regenerat
 and verified by `akan lint wtbd`.
 
 Import from `@apps/wtbd/ui`:
-- `jellyButtonRecipe`(variant: default|primary*|secondary|accent|neutral|outline|ghost|destructive|success|warning|info|link · size: xs|sm|md*|lg|xl|icon · shape: default*|square|circle · outline: true|false) — Sugared gummy button with the same variants as akanjs's `buttonRecipe`; `page/_overrides.tsx` binds it to every akanjs/ui Button. ghost/outline/link stay surfaceless.
+- `surfaceRecipe`(padding: none|sm|md*|lg)
 <!-- akan:agent:end -->
