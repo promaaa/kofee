@@ -21,6 +21,7 @@ from . import __version__
 from .analyze import Analysis, Grid, analyze, annotate, cell_names, cells_covered, side_by_side
 
 MAX_BODY_BYTES = 5 * 1024 * 1024
+RECORD_EVERY_S = 1.0  # the monitor may send faster than the 1 fps the protocol expects; Drive syncs every file
 
 Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
 Point = tuple[Fraction, Fraction]
@@ -55,6 +56,7 @@ def create_app(grid: Grid | None = None, debug_dir: Path | None = None, record_d
         session = record_dir / time.strftime("%Y%m%d-%H%M%S")
         session.mkdir(parents=True, exist_ok=True)
     frame_numbers = itertools.count(1)
+    last_recorded: dict[str, float] = {}
 
     def run(img: np.ndarray, board_id: str, cols: int, rows: int) -> dict:
         started = time.perf_counter()
@@ -74,7 +76,8 @@ def create_app(grid: Grid | None = None, debug_dir: Path | None = None, record_d
             cv2.imwrite(str(debug_dir / f"{board_id}_frame.jpg"), img)
             if board is not None:
                 cv2.imwrite(str(debug_dir / f"{board_id}_board.jpg"), board)
-        if session is not None:
+        if session is not None and time.monotonic() - last_recorded.get(board_id, 0.0) >= RECORD_EVERY_S:
+            last_recorded[board_id] = time.monotonic()
             n = next(frame_numbers)
             cv2.imwrite(str(session / f"frame_{n:06d}.jpg"), img)
             cv2.imwrite(str(session / f"view_{n:06d}.jpg"), side_by_side(img, result, board, dirty_cells))
