@@ -88,6 +88,15 @@ def test_hidden_mark_or_person_makes_the_scan_unusable(client):
     assert post(client, frame(person=True)).json()["reason"] == "occluded"
 
 
+def test_grey_residue_counts_but_black_edge_labels_do_not(client):
+    img = cv2.imdecode(np.frombuffer(frame(dirty=()), np.uint8), cv2.IMREAD_COLOR)
+    cv2.line(img, (170, 250), (190, 250), (20, 20, 20), 3)
+    cv2.putText(img, "2", (158, 262), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (20, 20, 20), 2)
+    cv2.line(img, (420, 300), (445, 305), (150, 150, 150), 3)
+    res = post(client, cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 70])[1].tobytes()).json()
+    assert cells(res["regions"]) == {"D3"}
+
+
 def test_grid_aligns_wtbd_cells_with_the_ticks():
     shifted = Grid((0.0, 0.1, 0.225, 0.35, 0.475, 0.6, 0.725, 0.85, 1.0), (0.0, 0.25, 0.5, 0.75, 1.0))
     assert shifted.remap(0.225, 0.3, 0.35, 0.4)[0] == pytest.approx(0.25)

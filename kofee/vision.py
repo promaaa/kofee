@@ -17,6 +17,7 @@ class Params:
     ink_max_warmth: int = 2       # ...and not warmer than it, which rejects the orange light reflections
     ink_min_blueness: float = 1.5 # a stroke counts as blue ink above this mean b* offset (black marks stay below)
     border: float = 0.025         # ignore this fraction of the frame along its edges (black corners, ticks)
+    colour_band: float = 0.06     # strokes reaching this close to an edge must be blue to count (labels live there)
     clean_ratio: float = 0.0025   # a cell is clean when less than this fraction of it is ink
     person_dark: int = 45         # pixels this much darker than the clear board: a person, an arm, an eraser
     person_ratio: float = 0.004   # the board is occupied above this fraction of such pixels
@@ -48,8 +49,10 @@ def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
 
     Thin strokes lose most of their colour to the camera's chroma subsampling, so a single pixel
     is judged on darkness (and on not being orange, which rejects the light reflections). Colour
-    is then decided per stroke: averaged over a whole stroke, blue ink stays measurably bluer than
-    its surroundings while black marks (frame corners, ticks, labels) stay neutral.
+    is then decided per stroke, and only near the edges, where the black ticks and labels live:
+    averaged over a whole stroke, blue ink stays measurably bluer than its surroundings while black
+    marks stay neutral. In the interior every dark stroke is ink, because a faint residue left by
+    the eraser keeps no measurable colour on a 960 px frame and must still fail verification.
     """
     lab = cv2.cvtColor(rect, cv2.COLOR_BGR2LAB)
     lum, yellow = lab[..., 0], lab[..., 2]
@@ -58,10 +61,12 @@ def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
     candidate = dark & (blueness >= -p.ink_max_warmth) & valid_mask(*rect.shape[:2], p.border)
     n, strokes = cv2.connectedComponents(cv2.dilate(candidate.astype(np.uint8), _STROKE_KERNEL), connectivity=8)
     ids = strokes[candidate]
-    mean_blueness = np.bincount(ids, weights=blueness[candidate], minlength=n) / np.maximum(np.bincount(ids, minlength=n), 1)
-    blue = mean_blueness >= p.ink_min_blueness
-    blue[0] = False
-    return candidate & blue[strokes]
+    count = np.maximum(np.bincount(ids, minlength=n), 1)
+    mean_blueness = np.bincount(ids, weights=blueness[candidate], minlength=n) / count
+    near_edge = np.bincount(ids, weights=~valid_mask(*rect.shape[:2], p.colour_band)[candidate], minlength=n) > 0
+    ink = (mean_blueness >= p.ink_min_blueness) | ~near_edge
+    ink[0] = False
+    return candidate & ink[strokes]
 
 
 def grid_ratios(mask: np.ndarray, col_edges: list[float], row_edges: list[float], border: float = 0.0) -> np.ndarray:
