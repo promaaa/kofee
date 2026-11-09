@@ -13,7 +13,7 @@ export const Card = ({ className, init, slice }: CardProps) => {
     <Load.Units
       className={className}
       init={init}
-      renderItem={(board) => <Board.Unit.Card key={board.id} href={`/board/${board.id}`} board={board} />}
+      renderItem={(board) => <Board.Unit.Card key={board.id} href={`/board/${board.id}/eraser`} board={board} />}
     />
   );
 };

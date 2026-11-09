@@ -1,8 +1,10 @@
 # boardRect Abstract
 
-<One sentence: the value this scalar holds, and what embeds it.>
+A rectangle on the whiteboard, embedded by erase tasks as their target and by scans as detected dirt.
 
 ## Rules
 
-- <What a caller may assume about the value that the constant file cannot say: an order, a unit, a fixed value.>
-- <Two to five of them. A single field's meaning goes in a trailing comment beside it in the constant file.>
+- Every value is a fraction of the board (0 to 1), never pixels or centimetres: x and w of the width, y and h of the
+  height.
+- The origin is the inner elbow of the top-left L mark, x grows right and y grows down, so the four L marks sit
+  outside the 0–1 square and never read as dirt.

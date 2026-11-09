@@ -7,7 +7,7 @@ export const Card = ({ eraseTask, href }: ModelProps<"eraseTask", cnst.LightEras
   return (
     <Link href={href} className="w-full">
       <div>
-        {l("eraseTask.name")}: {eraseTask.name}
+        {l("eraseTask.cell")}: {eraseTask.cell} · {l(`eraseTaskStatus.${eraseTask.status}`)}
       </div>
     </Link>
   );

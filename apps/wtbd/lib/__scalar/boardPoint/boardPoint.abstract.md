@@ -1,8 +1,8 @@
 # boardPoint Abstract
 
-<One sentence: the value this scalar holds, and what embeds it.>
+A point in a camera frame, embedded by scans to mark where the board's L marks were found.
 
 ## Rules
 
-- <What a caller may assume about the value that the constant file cannot say: an order, a unit, a fixed value.>
-- <Two to five of them. A single field's meaning goes in a trailing comment beside it in the constant file.>
+- Values are fractions of the camera frame (0 to 1), not board fractions and not pixels, so an overlay scales to
+  any preview size without knowing the frame's resolution.

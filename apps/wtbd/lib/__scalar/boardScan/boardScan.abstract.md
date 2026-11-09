@@ -1,8 +1,11 @@
 # boardScan Abstract
 
-<One sentence: the value this scalar holds, and what embeds it.>
+The analysis of one camera frame: where the board is in the frame and which grid cells look dirty. It is a
+response and pubsub payload only; scans are never stored.
 
 ## Rules
 
-- <What a caller may assume about the value that the constant file cannot say: an order, a unit, a fixed value.>
-- <Two to five of them. A single field's meaning goes in a trailing comment beside it in the constant file.>
+- A scan is usable only when all four L marks were found. An unusable scan (board blocked, moved, or the algorithm
+  unreachable) creates, cancels and judges nothing.
+- `capturedAt` is when the server received the frame, before analysis, so a slow algorithm cannot push a frame
+  past an erase report it predates.
