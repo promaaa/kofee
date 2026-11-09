@@ -105,39 +105,40 @@ class Board:
         return cls(np.array(d["corners"]), tuple(d["size_mm"]), d["col_edges"], d["row_edges"])
 
 
-def find_ticks(frame: np.ndarray, board: Board, axis: str, pad: int = 40) -> list[float] | None:
-    """Locate the graduation marks drawn along the frame's edges.
+def find_ticks(frame: np.ndarray, board: Board, axis: str, pad: int = 40, near: int = 26) -> list[float] | None:
+    """Locate the graduation marks drawn just outside the frame's edges.
 
-    axis="u" reads the ticks on the top and bottom edges (column boundaries), axis="v" those on
-    the left and right edges (row boundaries). Returns the full list of edges, 0 and 1 included,
-    or None when no regularly spaced set of ticks is found.
+    axis="u" reads the ticks above and below the frame (column boundaries), axis="v" those left
+    and right of it (row boundaries). Only a strip of `near` px along the outside of each edge is
+    read, so labels written next to the ticks do not get in the way. Returns the full list of
+    edges, 0 and 1 included, or None when no regularly spaced set of ticks is found.
     """
     grey = cv2.cvtColor(board.rectify(frame, pad=pad), cv2.COLOR_BGR2GRAY)
     w, h = board.rect_size
     if axis == "u":
         length = w
-        bands = [grey[0 : 2 * pad, pad : pad + w], grey[h : h + 2 * pad, pad : pad + w]]
+        bands = [grey[pad - near : pad - 2, pad : pad + w], grey[pad + h + 2 : pad + h + near, pad : pad + w]]
     else:
         length = h
-        bands = [grey[pad : pad + h, 0 : 2 * pad].T, grey[pad : pad + h, w : w + 2 * pad].T]
+        bands = [grey[pad : pad + h, pad - near : pad - 2].T, grey[pad : pad + h, pad + w + 2 : pad + w + near].T]
 
     found = []
     for band in bands:
-        dark = band < np.median(band) - 50
+        dark = band < np.median(band) - 35
         profile = dark.sum(axis=0)
-        margin = int(0.05 * length)  # skip the black L corners
+        margin = max(int(0.06 * length), 50)  # skip the arms of the black L corners
         profile[:margin] = 0
         profile[-margin:] = 0
         ticks, x = [], 0
         while x < length:
-            if profile[x] >= 4:
+            if profile[x] >= 3:
                 start = x
-                while x < length and profile[x] >= 4:
+                while x < length and profile[x] >= 3:
                     x += 1
-                if x - start <= 0.03 * length:  # a tick is narrow; text or edges are not
+                if x - start <= 0.06 * length:  # a tick is narrow; text or edges are not
                     ticks.append((start + x - 1) / 2 / length)
             x += 1
-        if len(ticks) >= 2:
+        if len(ticks) >= 3:
             gaps = np.diff(ticks)
             if gaps.std() / gaps.mean() < 0.2:
                 found.append(ticks)

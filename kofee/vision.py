@@ -15,6 +15,7 @@ from .board import Board
 class Params:
     ink_dark: int = 18            # ink is at least this much darker (L*, 0-255) than its local background...
     ink_max_warmth: int = 2       # ...and not warmer than it, which rejects the orange light reflections
+    ink_min_blueness: float = 2.0 # a stroke counts as blue ink above this mean b* offset (black marks stay < 2)
     border: float = 0.025         # ignore this fraction of the frame along its edges (black corners, ticks)
     clean_ratio: float = 0.0025   # a cell is clean when less than this fraction of it is ink
     person_dark: int = 45         # pixels this much darker than the clear board: a person, an arm, an eraser
@@ -39,17 +40,28 @@ def subdivide(edges: list[float], k: int) -> list[float]:
     return out + [edges[-1]]
 
 
-def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
-    """Pixels covered by marker ink: darker than their surroundings and not orange.
+_STROKE_KERNEL = np.ones((3, 3), np.uint8)
 
-    Thin strokes lose most of their colour to the camera's chroma subsampling, so darkness is
-    the main cue. The colour test only has to reject warm reflections, which are brighter anyway.
+
+def ink_mask(rect: np.ndarray, p: Params) -> np.ndarray:
+    """Pixels covered by blue marker ink.
+
+    Thin strokes lose most of their colour to the camera's chroma subsampling, so a single pixel
+    is judged on darkness (and on not being orange, which rejects the light reflections). Colour
+    is then decided per stroke: averaged over a whole stroke, blue ink stays measurably bluer than
+    its surroundings while black marks (frame corners, ticks, labels) stay neutral.
     """
     lab = cv2.cvtColor(rect, cv2.COLOR_BGR2LAB)
-    lum, warm = lab[..., 0], lab[..., 2]
+    lum, yellow = lab[..., 0], lab[..., 2]
+    blueness = cv2.medianBlur(yellow, 31).astype(np.int16) - yellow
     dark = cv2.medianBlur(lum, 31).astype(np.int16) - lum > p.ink_dark
-    not_warm = warm.astype(np.int16) - cv2.medianBlur(warm, 31) <= p.ink_max_warmth
-    return dark & not_warm & valid_mask(*rect.shape[:2], p.border)
+    candidate = dark & (blueness >= -p.ink_max_warmth) & valid_mask(*rect.shape[:2], p.border)
+    n, strokes = cv2.connectedComponents(cv2.dilate(candidate.astype(np.uint8), _STROKE_KERNEL), connectivity=8)
+    ids = strokes[candidate]
+    mean_blueness = np.bincount(ids, weights=blueness[candidate], minlength=n) / np.maximum(np.bincount(ids, minlength=n), 1)
+    blue = mean_blueness >= p.ink_min_blueness
+    blue[0] = False
+    return candidate & blue[strokes]
 
 
 def grid_ratios(mask: np.ndarray, col_edges: list[float], row_edges: list[float], border: float = 0.0) -> np.ndarray:
