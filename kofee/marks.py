@@ -10,6 +10,8 @@ import numpy as np
 
 WORK_WIDTH = 960
 ROLES = ("tl", "tr", "br", "bl")
+ARM_TOLERANCE_DEG = 10.0
+_EDGES_OF = {"tl": ((0, 1), (0, 3)), "tr": ((0, 1), (1, 2)), "br": ((1, 2), (3, 2)), "bl": ((0, 3), (3, 2))}
 _KERNEL = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
 
 
@@ -18,6 +20,7 @@ class Mark:
     role: str  # tl | tr | br | bl
     elbow: tuple[float, float]  # concave corner of the L, in working pixels
     area: float
+    angle: float  # direction of the arms, degrees modulo 90
 
 
 def _orientation(contour: np.ndarray, x: int, y: int, bw: int, bh: int) -> str | None:
@@ -75,7 +78,7 @@ def _l_shapes(mask: np.ndarray) -> list[Mark]:
         if role is None:
             continue
         ex, ey = contour[deepest[2], 0]
-        marks.append(Mark(role, (float(ex), float(ey)), area))
+        marks.append(Mark(role, (float(ex), float(ey)), area, cv2.minAreaRect(contour)[2] % 90))
     return marks
 
 
@@ -90,6 +93,24 @@ def _plausible(quad: np.ndarray, frame_area: float) -> bool:
     return min(top, bottom) / max(top, bottom) >= 0.6 and min(left, right) / max(left, right) >= 0.6
 
 
+def _angle_gap(a: float, b: float) -> float:
+    return abs((a - b + 45) % 90 - 45)
+
+
+def _arms_follow_edges(quad: np.ndarray, combo: tuple[Mark, ...]) -> bool:
+    """Tape lies flat on the board, so each mark's arms run along the two frame edges it starts.
+
+    A blob picked up in place of a hidden mark (a sleeve, a label) breaks this, even when the
+    quadrilateral it makes still looks reasonable.
+    """
+    for mark in combo:
+        for i, j in _EDGES_OF[mark.role]:
+            dx, dy = quad[j] - quad[i]
+            if _angle_gap(np.degrees(np.arctan2(dy, dx)) % 90, mark.angle) > ARM_TOLERANCE_DEG:
+                return False
+    return True
+
+
 def find_corners(img: np.ndarray) -> np.ndarray | None:
     """Inner elbows of the four marks in frame pixels, ordered TL, TR, BR, BL; None unless all four are seen."""
     scale = min(1.0, WORK_WIDTH / img.shape[1])
@@ -100,9 +121,9 @@ def find_corners(img: np.ndarray) -> np.ndarray | None:
     best, best_score = None, 0.0
     for combo in product(*(by_role[r] for r in ROLES)):
         quad = np.float32([m.elbow for m in combo])
-        if not _plausible(quad, frame_area):
-            continue
         areas = [m.area for m in combo]
+        if min(areas) < 0.3 * max(areas) or not _plausible(quad, frame_area) or not _arms_follow_edges(quad, combo):
+            continue
         score = cv2.contourArea(quad) * min(areas) / max(areas)  # the four tape marks have similar sizes
         if score > best_score:
             best, best_score = quad, score
