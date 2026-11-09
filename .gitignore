@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# Local setup and outputs
+board.json
+runs/
+
+# Raw photos and videos (too large for git)
+pictures/
+*.mov
+*.HEIC
