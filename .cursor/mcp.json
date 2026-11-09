@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "akan": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["-lc", "cd \"${workspaceFolder}\" && akan mcp --mode apply"]
+    }
+  }
+}

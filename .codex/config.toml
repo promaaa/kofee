@@ -1,0 +1,3 @@
+[mcp_servers.akan]
+command = "bash"
+args = ["-lc", "akan mcp --mode apply"]

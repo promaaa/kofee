@@ -1,0 +1,23 @@
+"use client";
+
+import { cn } from "akanjs/client";
+import { Image } from "akanjs/ui";
+
+// ===== GlobalLoading.tsx =====
+// Convention: ui/ folder — reusable visual components. PascalCase .tsx, "use client" directive.
+// File name = exported component name.
+// Scanned by akan sync into ui/index.ts barrel automatically.
+
+interface GlobalLoadingProps {
+  className?: string;
+  message?: string;
+}
+
+export const GlobalLoading = ({ className, message = "Loading..." }: GlobalLoadingProps) => {
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-4 py-32", className)}>
+      <Image alt="" className="size-12 animate-bounce" height={96} src="/jelly/star.webp" width={96} />
+      <span className="text-foreground/60 text-sm">{message}</span>
+    </div>
+  );
+};

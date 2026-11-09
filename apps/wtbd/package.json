@@ -1,0 +1,9 @@
+{
+  "type": "module",
+  "name": "@wtbd",
+  "version": "0.0.1",
+  "dependencies": {
+    "react": "19.3.1"
+  },
+  "devDependencies": {}
+}

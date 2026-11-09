@@ -1,0 +1,21 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "extends": ["@akanjs/devkit/biome.base.json"],
+  "files": {
+    "includes": [
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.json",
+      "**/*.jsonc",
+      "!infra/master/createRecords.ts",
+      "!pkgs/contract/env.ts",
+      "!!**/node_modules",
+      "!!**/dist",
+      "!!**/.akan",
+      "!!**/.claude",
+      "!!**/dump",
+      "!!**/local",
+      "!!**/ios/DerivedData"
+    ]
+  }
+}
