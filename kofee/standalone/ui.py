@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from .board import Board
+from ..board import Board
 from .tasks import Agent, Task, robot_command
 
 SIZE = (1920, 1080)

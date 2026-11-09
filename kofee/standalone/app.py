@@ -14,12 +14,13 @@ import cv2
 import numpy as np
 
 from . import ui
-from .board import Board, find_ticks, order_corners, uniform_edges
+from ..board import Board, find_ticks, order_corners, uniform_edges
 from .camera import FrameSource
 from .episodes import EpisodeLog
-from .server import Hub, lan_address, serve
+from ..server import lan_address
+from .api import Hub, serve
 from .tasks import Agent, Planner, Task, robot_command, say
-from .vision import Params, SceneMonitor, cell_ratios, grid_ratios, ink_mask, subdivide
+from ..vision import Params, SceneMonitor, cell_ratios, grid_ratios, ink_mask, subdivide
 
 WINDOW = "kofee"
 DEFAULT_SIZE_MM = (1100.0, 500.0)
