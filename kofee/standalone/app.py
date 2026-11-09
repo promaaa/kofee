@@ -14,7 +14,9 @@ import cv2
 import numpy as np
 
 from . import ui
+from ..analyze import Grid
 from ..board import Board, find_ticks, order_corners, uniform_edges
+from ..marks import find_corners
 from .camera import FrameSource
 from .episodes import EpisodeLog
 from ..server import lan_address
@@ -78,6 +80,7 @@ class App:
         self.t_start: float | None = None
         self.t_state = time.monotonic()
         self.t_published = 0.0
+        self.t_auto = 0.0
         self.status, self.tone = "", "info"
         self.result: bool | None = None
         self.show_ink = True
@@ -101,7 +104,9 @@ class App:
                     continue
                 self.frame = frame
                 self.handle_commands(now)
-                if self.state is not State.CALIBRATE:
+                if self.state is State.CALIBRATE:
+                    self.try_auto_calibrate(now)
+                else:
                     self.process(frame, now)
                 publish = self.hub is not None and now - self.t_published >= PUBLISH_EVERY_S
                 if window or publish:
@@ -252,6 +257,15 @@ class App:
         self.state = State.READY
         self.set_status("", "info")
 
+    def try_auto_calibrate(self, now: float) -> None:
+        """Find the four L marks on their own, at most once a second, unless corners are being clicked."""
+        if self.clicks or now - self.t_auto < 1.0:
+            return
+        self.t_auto = now
+        corners = find_corners(self.frame)
+        if corners is not None:
+            self.calibrate(corners)
+
     def calibrate(self, corners_px) -> None:
         """Build the board from the 4 frame corners (camera pixels) and read the graduation ticks."""
         corners = order_corners(corners_px)
@@ -260,8 +274,12 @@ class App:
         else:
             size_mm = self.board.size_mm if self.board else DEFAULT_SIZE_MM
         draft = Board(corners, size_mm, uniform_edges(self.args.cols), uniform_edges(self.args.rows))
-        cols = find_ticks(self.frame, draft, "u")
-        rows = find_ticks(self.frame, draft, "v")
+        if Path(self.args.grid).exists():
+            grid = Grid.load(self.args.grid)
+            cols, rows = list(grid.col_edges), list(grid.row_edges)
+        else:
+            cols = find_ticks(self.frame, draft, "u")
+            rows = find_ticks(self.frame, draft, "v")
         self.board = Board(corners, size_mm, cols or draft.col_edges, rows or draft.row_edges)
         self.board.save(self.board_path)
         print(
@@ -436,6 +454,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--source", default="0", help="webcam index or video file (default: 0)")
     ap.add_argument("--loop", action="store_true", help="loop a video file")
     ap.add_argument("--board", default="board.json", help="calibration file (default: board.json)")
+    ap.add_argument("--grid", default="grid.json", help="tick positions from kofee-grid; read from the board when missing")
     ap.add_argument("--agents", default="Marc,Kangmin", help="embodiments, comma separated, as name[:tool]")
     ap.add_argument("--voice", default="Samantha", help="macOS voice for spoken instructions")
     ap.add_argument("--mute", action="store_true", help="no spoken instructions")
@@ -446,7 +465,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--clean", type=float, default=0.25, help="max ink %% for a clean cell (default: 0.25)")
     ap.add_argument("--settle", type=float, default=1.2, help="seconds of clear board before measuring")
     ap.add_argument("--runs", default="runs", help="where episodes are logged (default: runs/)")
-    ap.add_argument("--port", type=int, default=8000, help="HTTP API port (default: 8000)")
+    ap.add_argument("--port", type=int, default=8001, help="HTTP API port (default: 8001)")
     ap.add_argument("--no-server", action="store_true", help="do not start the HTTP API")
     ap.add_argument("--headless", action="store_true", help="no OpenCV window (front-ends use the API)")
     return ap

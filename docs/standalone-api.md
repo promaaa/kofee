@@ -1,7 +1,7 @@
 # kofee API
 
 The Python loop (camera, perception, planner, verifier) runs on the laptop that holds the camera and serves
-everything a front-end needs. Base URL: `http://<laptop-ip>:8000`, printed at startup. CORS is open to any
+everything a front-end needs. Base URL: `http://<laptop-ip>:8001`, printed at startup. CORS is open to any
 origin, and the interactive schema lives at `/docs`. A bare fallback UI is served at `/`.
 
 ## Endpoints
@@ -86,7 +86,7 @@ A failed verification leaves the cell dirty, so the next scan assigns it again, 
 ## Minimal client
 
 ```js
-const api = "http://192.168.0.12:8000";
+const api = "http://192.168.0.12:8001";
 
 new EventSource(`${api}/api/events`).onmessage = (e) => render(JSON.parse(e.data));
 document.querySelector("img").src = `${api}/stream/board.mjpg`;
