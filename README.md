@@ -98,20 +98,7 @@ Each frame is analysed on its own, with no state ([`kofee/analyze.py`](kofee/ana
 4. **Find the ink.** A pixel is ink when it is darker than its local background. Ceiling-light reflections and glare streaks are clipped, and specks under 40 px are ignored. Colour is decided per stroke, so the black frame, ticks and labels are never dirt.
 5. **Map to cells.** Each blob gets one tight box, mapped onto the hand-drawn 8 × 4 grid measured in [`grid.json`](grid.json).
 
-```mermaid
-sequenceDiagram
-    participant C as Camera
-    participant A as Algorithm server (kofee/)
-    participant P as Planner (wtbd or standalone)
-    participant E as Embodiment (person or robot)
-    loop about once per second
-        C->>A: frame
-        A-->>P: board corners + ink boxes
-    end
-    P->>E: "erase C2" in its own language
-    E-->>P: attempt
-    Note over A,P: first clear frame decides: pass, retry or give up
-```
+<p align="center"><img src="docs/img/pipeline.svg" alt="Pipeline: the camera sends a frame to the vision step, which finds the dirty cells. The planner turns each cell into a task and sends it to an embodiment, a person or a robot. The attempt changes the board and the camera sees the result. The first clear frame decides pass, retry with the next embodiment, or give up after 3, and the planner writes the episode log" width="100%"/></p>
 
 ## Quick start
 
