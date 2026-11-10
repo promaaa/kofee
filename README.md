@@ -14,7 +14,7 @@ A hackathon project from **c0mpiled-17 Seoul** (9 November 2026), on the Y Combi
 [![YC RFS](https://img.shields.io/badge/YC%20RFS-Physical%20World%20OS-f26625?style=flat-square&logo=ycombinator&logoColor=white)](https://www.ycombinator.com/rfs)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab?style=flat-square&logo=python&logoColor=white)](#quick-start)
 [![OpenCV](https://img.shields.io/badge/OpenCV-vision-5c3ee8?style=flat-square&logo=opencv&logoColor=white)](nunchi/analyze.py)
-[![Bun](https://img.shields.io/badge/Bun-app%20server-000000?style=flat-square&logo=bun&logoColor=white)](apps/wtbd/)
+[![Bun](https://img.shields.io/badge/Bun-app%20server-000000?style=flat-square&logo=bun&logoColor=white)](apps/nunchi/)
 
 <img src="docs/img/teaser.gif" alt="Camera view of the demo: Marc erases the board, the camera overlays the grid and marks cell C2 as still dirty, he erases again and the grid comes back empty" width="100%"/>
 
@@ -124,7 +124,7 @@ After you redraw the grid ticks, measure them again from a clear photo: `uv run 
 |---|---|
 | [`nunchi/`](nunchi/) | Vision: L marks, rectification, occlusion guard, ink, grid |
 | [`nunchi/standalone/`](nunchi/standalone/) | All-in-one demo: task interface, planner, verifier, episode log ([API](docs/standalone-api.md)) |
-| [`apps/wtbd/`](apps/wtbd/) | App server, Monitor and Eraser pages |
+| [`apps/nunchi/`](apps/nunchi/) | App server, Monitor and Eraser pages |
 | [`protocol/`](protocol/algorithm-server.md) | Contract between the app server and the algorithm server |
 | [`tests/`](tests/) | Protocol, standalone and real-frame tests |
 

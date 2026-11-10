@@ -1,28 +1,28 @@
 # Algorithm Server Protocol (v1)
 
-Status: **draft v1**, written against the wtbd client as implemented in
-`apps/wtbd/srvkit/remoteVisionApi.ts`. Anything marked **Proposed** is not implemented by wtbd yet; the full list is
+Status: **draft v1**, written against the app server as implemented in
+`apps/nunchi/srvkit/remoteVisionApi.ts`. Anything marked **Proposed** is not implemented by the app server yet; the full list is
 in [section 12](#12-open-questions--proposed-changes).
 
 ## 1. Purpose, scope and roles
 
 This document is the spec for the Python **algorithm server**: it receives one JPEG of a whiteboard and reports
 where the board is in the frame and where the dirt (ink) is on the board. It covers only the HTTP contract between
-the algorithm server and the TypeScript app server **wtbd**, plus practical guidance for building the algorithm.
+the algorithm server and the TypeScript **app server**, plus practical guidance for building the algorithm.
 
 | Role | What it is | Talks to |
 |---|---|---|
 | Human | Writes on the whiteboard. No software. | nobody |
-| Monitor | Browser page with a camera aimed at the board. Uploads JPEGs back to back, one in flight, as fast as the camera and the pipeline allow. | wtbd |
-| wtbd | App server (Akan.js on Bun, TypeScript). Turns dirt into erase tasks on a grid of cells. | Monitor, Eraser, algorithm |
-| Eraser | A person acting as a robot, with a phone that shows which cell to erase. | wtbd |
-| Algorithm server | **You.** Python, stateless, one endpoint. | answers wtbd only |
+| Monitor | Browser page with a camera aimed at the board. Uploads JPEGs back to back, one in flight, as fast as the camera and the pipeline allow. | app server |
+| App server | TypeScript server (Akan.js on Bun, TypeScript). Turns dirt into erase tasks on a grid of cells. | Monitor, Eraser, algorithm |
+| Eraser | A person acting as a robot, with a phone that shows which cell to erase. | app server |
+| Algorithm server | **You.** Python, stateless, one endpoint. | answers the app server only |
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant M as Monitor (browser + camera)
-    participant W as wtbd (TypeScript)
+    participant W as App server (TypeScript)
     participant A as Algorithm server (Python)
     participant E as Eraser (phone)
     loop as fast as possible (at least 5 per second), next frame only after the reply
@@ -41,25 +41,25 @@ sequenceDiagram
 
 | What | Direction | Typical size | Rate |
 |---|---|---|---|
-| Camera frame (JPEG, ~960 px wide, quality ~0.7) | Monitor -> wtbd | 60-120 KB | 5-60 per second per board |
-| The same bytes, unchanged (no resize, re-encode or rotation) | wtbd -> algorithm | 60-120 KB | at most 1 in flight per board |
-| JSON result | algorithm -> wtbd | under 2 KB (4 corners + a few dozen boxes) | 1 per request |
+| Camera frame (JPEG, ~960 px wide, quality ~0.7) | Monitor -> app server | 60-120 KB | 5-60 per second per board |
+| The same bytes, unchanged (no resize, re-encode or rotation) | app server -> algorithm | 60-120 KB | at most 1 in flight per board |
+| JSON result | algorithm -> app server | under 2 KB (4 corners + a few dozen boxes) | 1 per request |
 
 About 1 Mbit/s per board, LAN only. The Monitor waits for each reply before sending the next frame, so your latency
 adds directly to the loop period.
 
-What wtbd does with your answer, so you know which errors matter:
+What the app server does with your answer, so you know which errors matter:
 
 - **Unusable scan** (no 4 corners, error, timeout): nothing is created, cancelled or judged.
 - **Creating a task**: a cell must be reported dirty by **3 usable scans in a row**. One false positive costs nothing.
 - **Cancelling a pending task**: the cell must read clean in 3 usable scans in a row.
-- **Judging after Done**: decided by **one** usable scan, the first wtbd received at least 1.5 s after Done.
+- **Judging after Done**: decided by **one** usable scan, the first the app server received at least 1.5 s after Done.
   Dirty: retry, up to 3 attempts, then failed. Clean: succeeded. A miss on that frame reports a false success, and
   a false positive causes a retry. Accuracy on a clean, unobstructed frame matters most.
 - **Unknown cells** (`unknown` mask, e.g. glare): never dirty in that scan, their streaks hold, and a task waiting
   for its verdict there is not judged until a later scan can see the cell. When unsure, mark it unknown rather than
   clean: unknown only delays a verdict, a wrong clean reports a false success.
-- wtbd stamps each frame's time when it arrives, before calling you, so slow analysis never moves a frame to the
+- The app server stamps each frame's time when it arrives, before calling you, so slow analysis never moves a frame to the
   wrong side of a Done report.
 
 ## 3. Protocol choice
@@ -69,7 +69,7 @@ Synchronous **HTTP/1.1 request/response**, raw JPEG as the request body, JSON re
 - One frame in, one result out, at most one request in flight per board: plain request/response fits exactly.
 - Trivial to test with `curl`, trivial to stub, and works with FastAPI/Flask with no extra dependencies.
 - **Not WebSocket**: needs connection state and reconnect logic, and gains little: a keep-alive HTTP round
-  trip through wtbd and the server measured about 17 ms, so the loop is bound by your latency, not the transport.
+  trip through the app server and the server measured about 17 ms, so the loop is bound by your latency, not the transport.
 - **Not gRPC**: needs `.proto` code generation and an HTTP/2 stack on both sides for a single call.
 - **Not multipart/form-data**: one image needs no boundaries. The metadata fits in the query string, and FastAPI's
   `UploadFile` would also need `python-multipart`.
@@ -88,8 +88,8 @@ Content-Type: image/jpeg
 
 | Query param | Type | Always sent | Meaning |
 |---|---|---|---|
-| `boardId` | string | yes | Always `main`: wtbd watches exactly one board. Kept so servers built against earlier drafts keep working; use it only for logs. |
-| `cols` | int >= 1 | yes | Grid columns (default 8). **Hint only.** Never needed: wtbd maps boxes to cells itself. |
+| `boardId` | string | yes | Always `main`: the app server watches exactly one board. Kept so servers built against earlier drafts keep working; use it only for logs. |
+| `cols` | int >= 1 | yes | Grid columns (default 8). **Hint only.** Never needed: the app server maps boxes to cells itself. |
 | `rows` | int >= 1 | yes | Grid rows (default 4). Hint only. |
 
 **Headers**: `Content-Type: image/jpeg` (`Content-Length` is set automatically) and `X-Protocol-Version: 1`. No
@@ -114,7 +114,7 @@ Board not found (a person in front of it, camera moved, a mark hidden). This is 
 { "corners": null, "regions": [] }
 ```
 
-| Field | Type | Meaning | How wtbd reads it today |
+| Field | Type | Meaning | How the app server reads it today |
 |---|---|---|---|
 | `corners` | 4 x `[x, y]` or `null` | Inner elbows of the L marks, as **frame** fractions, order TL, TR, BR, BL | Missing or `null` means unusable. Anything other than exactly 4 points means unusable. |
 | `regions` | array | Dirt boxes as **board** fractions (section 5) | Missing means `[]` |
@@ -126,7 +126,7 @@ Board not found (a person in front of it, camera moved, a mark hidden). This is 
 
 When `corners` is `null`, send `regions: []`. Regions only make sense relative to a board that was found.
 
-JSON Schema (draft 2020-12). It describes what you should send, which is slightly stricter than what wtbd tolerates:
+JSON Schema (draft 2020-12). It describes what you should send, which is slightly stricter than what the app server tolerates:
 
 ```json
 {
@@ -205,7 +205,7 @@ class AnalyzeResponse(BaseModel):
     unknown: list[Rect] = Field(default_factory=list)
 ```
 
-TypeScript (wtbd side, verbatim from `remoteVisionApi.ts`):
+TypeScript (app server side, verbatim from `remoteVisionApi.ts`):
 
 ```ts
 interface AnalyzeResponse {
@@ -221,7 +221,7 @@ interface AnalyzeResponse {
 GET /health  ->  200 {"status": "ok", "version": "0.1.0"}
 ```
 
-wtbd calls it once at startup when `VISION_API_URL` is set and logs a warning when it fails or answers non-2xx. It
+The app server calls it once at startup when `VISION_API_URL` is set and logs a warning when it fails or answers non-2xx. It
 never blocks boot: frames simply scan as unusable until the server answers.
 
 ## 5. Coordinate systems
@@ -230,7 +230,7 @@ There are two spaces. **Corners use frame space, regions use board space.** Neit
 
 **Frame space** (`corners`): fractions of the received JPEG, `x = px / width`, `y = py / height`, origin at the
 top-left of the image, y pointing down. Order is **TL, TR, BR, BL** (clockwise), as the marks appear in the JPEG.
-wtbd uses corners only to decide usability and forwards them to the Monitor for an overlay. It never re-warps
+The app server uses corners only to decide usability and forwards them to the Monitor for an overlay. It never re-warps
 anything, so the perspective correction is entirely yours.
 
 ```
@@ -264,7 +264,7 @@ other. Close-up of the top-left mark (`#` is tape):
 
 **Board space** (`regions`): the straightened quadrilateral whose corners are the four inner elbows, scaled to
 0-1 on both axes. The origin is the TL inner elbow, x grows right, y grows down. The tape lies **outside** the
-0-1 square, so it can never read as dirt. wtbd lays its grid over this square:
+0-1 square, so it can never read as dirt. The app server lays its grid over this square:
 
 ```
     x=0           0.25          0.5           0.75          x=1
@@ -296,7 +296,7 @@ warp the board to 1000 x 500 px and find one word at warped pixels x 270-350, y 
 }
 ```
 
-wtbd's `cellsCoveredBy` (`apps/wtbd/lib/board/board.constant.ts`) computes, for `cols = 8, rows = 4`:
+The app server's `cellsCoveredBy` (`apps/nunchi/common/boardGrid.ts`) computes, for `cols = 8, rows = 4`:
 
 ```
 left   = max(0,      floor(x * cols))           = floor(2.16)     = 2
@@ -322,10 +322,10 @@ one union box covers every cell in between.
 
 ## 6. Error handling and timeouts
 
-wtbd checks only `response.ok` (status 200-299) and then parses JSON. Every failure becomes an **unusable scan**
-for that frame. wtbd never retries a frame, because the next one arrives about 1 s later.
+The app server checks only `response.ok` (status 200-299) and then parses JSON. Every failure becomes an **unusable scan**
+for that frame. The app server never retries a frame, because the next one arrives about 1 s later.
 
-| Situation | Algorithm server returns | wtbd does |
+| Situation | Algorithm server returns | The app server does |
 |---|---|---|
 | Image decoded, all 4 marks found | `200` with corners + regions | Usable scan |
 | Image decoded, a mark missing or the board blocked | `200` with `{"corners": null, "regions": []}` | Unusable scan, no error logged |
@@ -333,7 +333,7 @@ for that frame. wtbd never retries a frame, because the next one arrives about 1
 | Missing or invalid query params | `422` (FastAPI default) | Same, with 422 |
 | Body unreasonably large (optional, e.g. > 5 MB) | `413` | Same, with 413 |
 | Unexpected exception | `500` | Same, with 500 |
-| No reply within **3 s** | (wtbd aborts the request) | Logs `Vision server unreachable ... TimeoutError`, unusable |
+| No reply within **3 s** | (the app server aborts the request) | Logs `Vision server unreachable ... TimeoutError`, unusable |
 | Connection refused, DNS failure | | Logs `Vision server unreachable ...`, unusable |
 | `200` whose body is not valid JSON | | Logged as "unreachable" with the parse error, unusable |
 
@@ -341,7 +341,7 @@ Rules for the Python side:
 
 - A board that cannot be seen is a **result**, not an error: answer `200` with `corners: null`.
 - Never queue or block waiting for something. If you cannot answer within 3 s, the work is wasted.
-- Validate your output with the Pydantic model. wtbd does not reject a malformed region (missing `x`, `NaN`); its
+- Validate your output with the Pydantic model. The app server does not reject a malformed region (missing `x`, `NaN`); its
   behaviour on one is undefined.
 
 ## 7. Performance budget and state
@@ -349,7 +349,7 @@ Rules for the Python side:
 | Item | Budget |
 |---|---|
 | Target latency per frame (server-side, p95) | **< 500 ms**. A plain OpenCV pipeline at 960 px usually runs in tens of ms. |
-| Hard limit | **3 s**. wtbd aborts the request and the frame is unusable. |
+| Hard limit | **3 s**. The app server aborts the request and the frame is unusable. |
 | Concurrency | at most 1 request per board in flight; different boards may overlap |
 
 The Monitor sends the next camera frame as soon as the previous reply lands (it encodes the next frame while it
@@ -357,11 +357,11 @@ waits), so your latency sets the detection rate: 200 ms is the 5 fps floor, and 
 higher rate. At 960 x 540 the current server answers in about 16 ms, about 60 fps. Per-frame work that only feeds
 `/debug/board.jpg` (annotate, encode, print) is part of that budget.
 
-**Statelessness.** Each request must be answerable from its own bytes. wtbd restarts, dropped frames and a Python
+**Statelessness.** Each request must be answerable from its own bytes. The app server restarts, dropped frames and a Python
 restart must never change results. Per-board state keyed by `boardId` is optional and may only make things faster,
 for example remembering where the marks were last time to narrow the search. In particular, **never reuse
-previous corners when a mark is not visible in this frame.** wtbd relies on `corners: null` to skip frames in which
-someone is standing in front of the board. Temporal smoothing is unnecessary: wtbd already requires 3 agreeing
+previous corners when a mark is not visible in this frame.** The app server relies on `corners: null` to skip frames in which
+someone is standing in front of the board. Temporal smoothing is unnecessary: the app server already requires 3 agreeing
 scans before it creates or cancels a task.
 
 Load models and allocate kernels once at startup, not per request. If you use `async def`, run the OpenCV work
@@ -465,7 +465,7 @@ async def analyze(
     return AnalyzeResponse(corners=FAKE_CORNERS, regions=FAKE_DIRT)
 ```
 
-In wtbd, this stub makes C2 a task once it has read dirty for 1 s (`BoardGrid.stableMs`) and dispatches it. Because the stub never cleans C2, each Done
+In the app server, this stub makes C2 a task once it has read dirty for 1 s (`BoardGrid.stableMs`) and dispatches it. Because the stub never cleans C2, each Done
 leads to a retry, the task fails after 3 attempts, and C2 is not tasked again for 60 s. Set `FAKE_DIRT = []` to see
 a task succeed. FastAPI's interactive docs are at `http://localhost:8000/docs`.
 
@@ -490,38 +490,38 @@ curl -s -i -X POST 'http://localhost:8000/analyze?boardId=test&cols=zero&rows=4'
   -H 'Content-Type: image/jpeg' --data-binary @board.jpg
 ```
 
-## 10. Pointing wtbd at the algorithm server
+## 10. Pointing the app server at the algorithm server
 
 ```bash
-# repo root, in the shell that starts wtbd
+# repo root, in the shell that starts the app server
 VISION_API_URL=http://192.168.0.42:8000 bun run dev
 ```
 
-- Give the **base URL only**: no trailing slash and no `/analyze`. wtbd appends `/analyze?...` itself, and a
+- Give the **base URL only**: no trailing slash and no `/analyze`. The app server appends `/analyze?...` itself, and a
   trailing slash produces `//analyze`, which returns 404.
-- wtbd also accepts `visionApiUrl` in its server env options. The env var is used when that option is unset.
-- Restart wtbd after changing it. When it is unset, wtbd uses its in-process mock.
-- To confirm the wiring, check the scan wtbd returns to the Monitor: it carries `source: "remote"` (instead of
-  `"mock"`) and `latencyMs`. Failures appear in the wtbd log as `Vision server answered <status> ...` or
+- The app server also accepts `visionApiUrl` in its server env options. The env var is used when that option is unset.
+- Restart the app server after changing it. When it is unset, the app server uses its in-process mock.
+- To confirm the wiring, check the scan the app server returns to the Monitor: it carries `source: "remote"` (instead of
+  `"mock"`) and `latencyMs`. Failures appear in the app server log as `Vision server answered <status> ...` or
   `Vision server unreachable ...`.
 
 Networking:
 
-- wtbd must be able to open a TCP connection to the algorithm server. The algorithm server never calls wtbd, and
+- The app server must be able to open a TCP connection to the algorithm server. The algorithm server never calls the app server, and
   the Monitor and Eraser never talk to it.
 - On another machine, run uvicorn with `--host 0.0.0.0`. `localhost` works only when both run on the same host
   and neither is in a container.
-- Before starting wtbd, run `curl http://<host>:<port>/health` **from the wtbd machine**. Venue Wi-Fi often blocks
+- Before starting the app server, run `curl http://<host>:<port>/health` **from the app server machine**. Venue Wi-Fi often blocks
   device-to-device traffic (client isolation); a phone hotspot or wired LAN avoids that. Allow Python through the
   macOS firewall if prompted.
 - There is no auth and no TLS: keep it on the LAN and never expose it to the internet.
 
 ## 11. Versioning
 
-This document describes **v1**. wtbd sends `X-Protocol-Version: 1` on every `/analyze` call; it does not read a
+This document describes **v1**. The app server sends `X-Protocol-Version: 1` on every `/analyze` call; it does not read a
 version back yet.
 
-- The algorithm server may echo it as a response header and/or add `"version": 1` to the JSON body; wtbd ignores
+- The algorithm server may echo it as a response header and/or add `"version": 1` to the JSON body; the app server ignores
   unknown keys.
 - These stay v1: new optional response fields and new optional query params. These require v2: changing coordinate
   meaning, corner order, required fields or status-code semantics. A server that cannot speak the requested
@@ -534,15 +534,15 @@ version back yet.
 - **Ghosting**: should faint residue left by a dry eraser count as dirt? The threshold (`C` or the black-hat cut)
   decides between endless retries and false successes. Agree on it using real frames.
 - **Orientation**: we assume the JPEG arrives upright and not mirrored. Confirm with whoever builds the Monitor.
-- **Glare cells**: resolved on the wtbd side by the `unknown` mask (item 6). The algorithm still has to detect glare
+- **Glare cells**: resolved on the app server side by the `unknown` mask (item 6). The algorithm still has to detect glare
   and report it; a glare spot it misses still reads clean.
 - **Eraser in frame at judge time**: if the marks are visible but the eraser's arm is still over the board, that
   frame can falsely judge "still dirty". The occlusion guard (section 8, step 11) is the cheap fix.
 
-### Changes needed on the wtbd side
+### Changes needed on the app server side
 
 Items 1, 2 (sending only) and 6 are **done**; the rest do not exist yet. Additive response fields can be sent by
-Python early (wtbd ignores unknown keys), but they have no effect until wtbd changes.
+Python early (the app server ignores unknown keys), but they have no effect until the app server changes.
 
 1. **Done.** **Call `GET /health`** at startup (and optionally periodically), and log a clear warning when the algorithm
    server is unreachable instead of failing frame by frame.
@@ -550,9 +550,9 @@ Python early (wtbd ignores unknown keys), but they have no effect until wtbd cha
    a mismatch.
 3. **Read frame size from the response** (`"frame": {"width": 960, "height": 540}`) to sanity-check the corner
    overlay and log resolution or aspect problems.
-4. **Pass the board's physical size as hints** (`&widthCm=112&heightCm=49`, `BoardGrid` in wtbd) so the
+4. **Pass the board's physical size as hints** (`&widthCm=112&heightCm=49`, `BoardGrid` in the app server) so the
    algorithm can warp at the true aspect ratio.
-5. **Per-region labels** (`"label": "ink" | "residue" | "other"`) plus a wtbd rule for which labels create tasks.
+5. **Per-region labels** (`"label": "ink" | "residue" | "other"`) plus an app server rule for which labels create tasks.
 6. **Done.** **An unknown/glare mask** (`"unknown": [{x, y, w, h}]` in board space). Cells it covers are neither dirty nor
    clean for that scan: their streaks do not move, and a verifying task in such a cell waits for a later scan.
 7. **A reason for unusable answers** (`"reason": "no_board" | "occluded" | ...` alongside `corners: null`), shown

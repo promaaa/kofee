@@ -45,7 +45,7 @@ def frame(dirty=("C2", "F3"), marks=("tl", "tr", "br", "bl"), person=False) -> b
 
 
 def cells(regions, cols=8, rows=4):
-    """wtbd's cellsCoveredBy (apps/wtbd/lib/board/board.constant.ts)."""
+    """The app server's cellsCoveredBy (apps/nunchi/common/boardGrid.ts)."""
     out = set()
     for r in regions:
         if (r.get("score") or 1) < 0.5:
@@ -97,7 +97,7 @@ def test_grey_residue_counts_but_black_edge_labels_do_not(client):
     assert cells(res["regions"]) == {"D3"}
 
 
-def test_grid_aligns_wtbd_cells_with_the_ticks():
+def test_grid_aligns_app_cells_with_the_ticks():
     shifted = Grid((0.0, 0.1, 0.225, 0.35, 0.475, 0.6, 0.725, 0.85, 1.0), (0.0, 0.25, 0.5, 0.75, 1.0))
     assert shifted.remap(0.225, 0.3, 0.35, 0.4)[0] == pytest.approx(0.25)
     res = post(TestClient(create_app(shifted)), frame(dirty=("C2",))).json()

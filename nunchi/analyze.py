@@ -19,7 +19,7 @@ _PERSON_KERNEL = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
 
 
 def cells_covered(regions: list[dict], cols: int, rows: int) -> list[tuple[int, int]]:
-    """(col, row) of every cell a region touches, as wtbd's cellsCoveredBy counts them."""
+    """(col, row) of every cell a region touches, as the app server's cellsCoveredBy counts them."""
     out = set()
     for r in regions:
         if (r.get("score") or 1.0) < 0.5:
@@ -38,8 +38,8 @@ def cell_names(cells: list[tuple[int, int]]) -> list[str]:
 class Grid:
     """Where the graduation ticks really are, in board fractions (0 and 1 included).
 
-    wtbd lays a uniform grid over board space. Reporting regions through this piecewise-linear
-    map makes wtbd's uniform cells coincide with the cells drawn on the physical board.
+    The app server lays a uniform grid over board space. Reporting regions through this piecewise-linear
+    map makes the app server's uniform cells coincide with the cells drawn on the physical board.
     """
 
     col_edges: tuple[float, ...]
@@ -162,7 +162,7 @@ def side_by_side(frame: np.ndarray, analysis: Analysis, board: np.ndarray | None
 
 
 def annotate(analysis: Analysis, grid: Grid | None, cols: int, rows: int) -> np.ndarray | None:
-    """The rectified board as wtbd will understand it: grid, dirty cells, ink and reported boxes."""
+    """The rectified board as the app server will understand it: grid, dirty cells, ink and reported boxes."""
     if analysis.board is None:
         return None
     img = analysis.board.copy()

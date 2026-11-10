@@ -126,7 +126,7 @@ def lan_address() -> str:
 def main(argv: list[str] | None = None) -> None:
     import uvicorn
 
-    ap = argparse.ArgumentParser(prog="nunchi", description="Algorithm server for wtbd (protocol/algorithm-server.md).")
+    ap = argparse.ArgumentParser(prog="nunchi", description="Algorithm server called by the app server (protocol/algorithm-server.md).")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--grid", default="grid.json", help="tick positions from nunchi-grid (ignored when the file is missing)")
