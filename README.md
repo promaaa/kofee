@@ -15,11 +15,10 @@ A hackathon project from **c0mpiled-17 Seoul** (9 November 2026), on the Y Combi
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab?style=flat-square&logo=python&logoColor=white)](#quick-start)
 [![OpenCV](https://img.shields.io/badge/OpenCV-vision-5c3ee8?style=flat-square&logo=opencv&logoColor=white)](kofee/analyze.py)
 [![Bun](https://img.shields.io/badge/Bun-app%20server-000000?style=flat-square&logo=bun&logoColor=white)](apps/wtbd/)
-[![YouTube](https://img.shields.io/badge/YouTube-demo%20video-ff0000?style=flat-square&logo=youtube&logoColor=white)](https://youtu.be/Qo3HoJxw4Gs)
 
-<a href="https://youtu.be/Qo3HoJxw4Gs"><img src="docs/img/teaser.gif" alt="Camera view of the demo: Marc erases the board, the camera overlays the grid and marks cell C2 as still dirty, he erases again and the grid comes back empty" width="100%"/></a>
+<img src="docs/img/teaser.gif" alt="Camera view of the demo: Marc erases the board, the camera overlays the grid and marks cell C2 as still dirty, he erases again and the grid comes back empty" width="100%"/>
 
-<sub>Camera view during the demo. Click to watch the video.</sub>
+<sub>Camera view during the demo.</sub>
 
 </div>
 
@@ -72,7 +71,7 @@ We had no robot at the hackathon, so the two of us played the embodiments, one w
   </tr>
 </table>
 
-In the run shown in the video, Marc needed three tries on C2. The log below was filled in by the system, not by us:
+In this demo run, Marc needed three tries on C2. The log below was filled in by the system, not by us:
 
 | Episode | Agent | Tool | Task | What the camera saw | Result |
 |:-:|---|---|---|---|:-:|
