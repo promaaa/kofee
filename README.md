@@ -13,7 +13,7 @@ A hackathon project from **c0mpiled-17 Seoul** (9 November 2026), on the Y Combi
 [![c0mpiled-17 Seoul](https://img.shields.io/badge/c0mpiled--17-Seoul-1a1a1a?style=flat-square&labelColor=ff6b1a)](https://luma.com/compiled-8lsr)
 [![YC RFS](https://img.shields.io/badge/YC%20RFS-Physical%20World%20OS-f26625?style=flat-square&logo=ycombinator&logoColor=white)](https://www.ycombinator.com/rfs)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab?style=flat-square&logo=python&logoColor=white)](#quick-start)
-[![OpenCV](https://img.shields.io/badge/OpenCV-vision-5c3ee8?style=flat-square&logo=opencv&logoColor=white)](kofee/analyze.py)
+[![OpenCV](https://img.shields.io/badge/OpenCV-vision-5c3ee8?style=flat-square&logo=opencv&logoColor=white)](nunchi/analyze.py)
 [![Bun](https://img.shields.io/badge/Bun-app%20server-000000?style=flat-square&logo=bun&logoColor=white)](apps/wtbd/)
 
 <img src="docs/img/teaser.gif" alt="Camera view of the demo: Marc erases the board, the camera overlays the grid and marks cell C2 as still dirty, he erases again and the grid comes back empty" width="100%"/>
@@ -87,7 +87,7 @@ In this demo run, Marc needed three tries on C2. The log below was filled in by 
 </div>
 <br/>
 
-The vision code is in [`kofee/analyze.py`](kofee/analyze.py). It treats every frame independently and takes about 30 ms for a 960 px frame on a laptop CPU, with no learned model.
+The vision code is in [`nunchi/analyze.py`](nunchi/analyze.py). It treats every frame independently and takes about 30 ms for a 960 px frame on a laptop CPU, with no learned model.
 
 1. It looks for the four black L-shaped tape marks at the corners of the board. If one is hidden, or the four marks do not form a plausible rectangle, the frame is dropped.
 2. It warps the board to a top-down view using the four corners.
@@ -102,7 +102,7 @@ The vision code is in [`kofee/analyze.py`](kofee/analyze.py). It treats every fr
 ```bash
 git clone https://github.com/promaaa/nunchi.git && cd nunchi
 uv sync
-uv run kofee-standalone --agents Marc:eraser,Kangmin:tissue   # webcam, planner, voice, episode log
+uv run nunchi-standalone --agents Marc:eraser,Kangmin:tissue   # webcam, planner, voice, episode log
 uv run pytest                                                  # tests on synthetic and real frames
 ```
 
@@ -110,11 +110,11 @@ uv run pytest                                                  # tests on synthe
 <summary><b>Full stack with the phone app</b> (<a href="https://github.com/akan-team/akanjs">Akan.js</a> on Bun)</summary>
 
 ```bash
-uv run kofee --grid grid.json                                  # algorithm server, prints VISION_API_URL
+uv run nunchi --grid grid.json                                  # algorithm server, prints VISION_API_URL
 bun install && VISION_API_URL=http://<host>:8000 bun run dev   # app server: Monitor and Eraser pages
 ```
 
-After you redraw the grid ticks, measure them again from a clear photo: `uv run kofee-grid photo.jpg`.
+After you redraw the grid ticks, measure them again from a clear photo: `uv run nunchi-grid photo.jpg`.
 
 </details>
 
@@ -122,8 +122,8 @@ After you redraw the grid ticks, measure them again from a clear photo: `uv run 
 
 | Path | Role |
 |---|---|
-| [`kofee/`](kofee/) | Vision: L marks, rectification, occlusion guard, ink, grid |
-| [`kofee/standalone/`](kofee/standalone/) | All-in-one demo: task interface, planner, verifier, episode log ([API](docs/standalone-api.md)) |
+| [`nunchi/`](nunchi/) | Vision: L marks, rectification, occlusion guard, ink, grid |
+| [`nunchi/standalone/`](nunchi/standalone/) | All-in-one demo: task interface, planner, verifier, episode log ([API](docs/standalone-api.md)) |
 | [`apps/wtbd/`](apps/wtbd/) | App server, Monitor and Eraser pages |
 | [`protocol/`](protocol/algorithm-server.md) | Contract between the app server and the algorithm server |
 | [`tests/`](tests/) | Protocol, standalone and real-frame tests |
@@ -133,4 +133,4 @@ After you redraw the grid ticks, measure them again from a clear photo: `uv run 
 - **Marc Duboc** ([@promaaa](https://github.com/promaaa)): vision, planner and verification.
 - **Kangmin** ([@aka-bassman](https://github.com/aka-bassman)): app server, Monitor and Eraser pages.
 
-We built this at [c0mpiled-17 Seoul](https://luma.com/compiled-8lsr), held at the COEX Startup Branch and organised by Transpose Platform. The topic came from the [Y Combinator Request for Startups](https://www.ycombinator.com/rfs). `kofee` was the code name during the hackathon and is still the name of the Python package.
+We built this at [c0mpiled-17 Seoul](https://luma.com/compiled-8lsr), held at the COEX Startup Branch and organised by Transpose Platform. The topic came from the [Y Combinator Request for Startups](https://www.ycombinator.com/rfs).

@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from kofee.analyze import Grid
-from kofee.server import create_app
+from nunchi.analyze import Grid
+from nunchi.server import create_app
 
 W, H = 960, 540
 ELBOWS = {"tl": (150, 120), "tr": (810, 118), "br": (814, 420), "bl": (146, 424)}

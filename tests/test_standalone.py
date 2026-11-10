@@ -5,9 +5,9 @@ import cv2
 import numpy as np
 import pytest
 
-from kofee.standalone.app import App, State, build_parser
-from kofee.board import Board, find_ticks
-from kofee.vision import Params, cell_ratios, ink_mask
+from nunchi.standalone.app import App, State, build_parser
+from nunchi.board import Board, find_ticks
+from nunchi.vision import Params, cell_ratios, ink_mask
 
 W, H = 1280, 720
 CORNERS = np.float32([(240, 160), (1040, 170), (1060, 560), (220, 540)])  # TL, TR, BR, BL

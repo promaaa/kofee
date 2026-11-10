@@ -4,7 +4,7 @@ from pathlib import Path
 
 import cv2
 
-from kofee.analyze import Grid, analyze, cell_names, cells_covered
+from nunchi.analyze import Grid, analyze, cell_names, cells_covered
 
 ROOT = Path(__file__).parent.parent
 

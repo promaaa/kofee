@@ -1,4 +1,4 @@
-# kofee API
+# nunchi API
 
 The Python loop (camera, perception, planner, verifier) runs on the laptop that holds the camera and serves
 everything a front-end needs. Base URL: `http://<laptop-ip>:8001`, printed at startup. CORS is open to any

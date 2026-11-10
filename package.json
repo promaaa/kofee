@@ -1,6 +1,6 @@
 {
-  "name": "kofee",
-  "description": "kofee workspace",
+  "name": "nunchi",
+  "description": "nunchi workspace",
   "version": "0.0.1",
   "scripts": {
     "sync": "akan sync",
@@ -8,25 +8,7 @@
     "lint": "akan lint",
     "typecheck": "akan typecheck",
     "test": "akan test",
-    "build": "akan build",
-    "setup:agent": "akan agent install all --force",
-    "agent:setup": "akan agent install all --force",
-    "agent:doctor": "akan doctor --strict --format json",
-    "agent:context": "akan context --format json",
-    "agent:mcp:readonly": "akan mcp-install all --mode readonly --force",
-    "agent:mcp:plan": "akan mcp-install all --mode plan --force",
-    "agent:mcp:apply": "akan mcp-install all --mode apply --force",
-    "agent:workflows": "akan workflow list",
-    "agent:sample:context": "akan context --format markdown --app wtbd --module project",
-    "agent:sample:service": "akan create-service billing wtbd --format json",
-    "agent:sample:module": "akan create-module project wtbd --page=true --format json",
-    "agent:sample:field": "akan add-field --app wtbd --module project --field budget --type Int --default 0 --format json",
-    "agent:sample:status": "akan add-enum-field --app wtbd --module project --field status --values draft,active,archived --default draft --format json",
-    "agent:sample:sync": "akan sync wtbd",
-    "agent:sample:check": "akan doctor --strict --format json",
-    "agent:sample:workflow:explain": "akan workflow explain add-field",
-    "agent:sample:workflow:plan": "akan workflow plan add-field --app wtbd --module task --field priority --type enum --values low,medium,high --default medium --format json --out .akan/workflows/plans/task-priority.json",
-    "agent:sample:workflow:dry-run": "akan workflow apply .akan/workflows/plans/task-priority.json --dry-run --format json"
+    "build": "akan build"
   },
   "dependencies": {
     "chance": "^1.1.13",
@@ -45,6 +27,5 @@
     "@akanjs/devkit": "3.1.2-rc.2",
     "@akanjs/cli": "3.1.2-rc.2",
     "typescript": "^6.0.3"
-  },
-  "patchedDependencies": {}
+  }
 }
