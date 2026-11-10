@@ -16,4 +16,4 @@ when `visionApiUrl` (or `VISION_API_URL`) is set, the in-process mock otherwise.
 Algorithm server contract: `POST {visionApiUrl}/analyze?boardId=main&cols=&rows=` with an `image/jpeg` body answers
 `{ corners: [[x, y] x4] | null, regions: [{ x, y, w, h, score }], unknown?: [{ x, y, w, h }] }` — corners as frame
 fractions in TL, TR, BR, BL order (null when any L mark is missing), regions and unknown as board fractions after
-straightening the board. Full contract: `protocol/algorithm-server.md`.
+straightening the board. Full contract: `docs/protocol.md`.

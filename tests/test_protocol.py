@@ -1,4 +1,4 @@
-"""protocol/algorithm-server.md, checked end to end on synthetic monitor frames."""
+"""docs/protocol.md, checked end to end on synthetic monitor frames."""
 
 import math
 

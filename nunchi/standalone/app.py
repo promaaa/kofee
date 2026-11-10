@@ -16,6 +16,7 @@ import numpy as np
 from . import ui
 from ..analyze import Grid
 from ..board import Board, find_ticks, order_corners, uniform_edges
+from ..grid import GRID_FILE
 from ..marks import find_corners
 from .camera import FrameSource
 from .episodes import EpisodeLog
@@ -474,7 +475,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--source", default="0", help="webcam index or video file (default: 0)")
     ap.add_argument("--loop", action="store_true", help="loop a video file")
     ap.add_argument("--board", default="board.json", help="calibration file (default: board.json)")
-    ap.add_argument("--grid", default="grid.json", help="tick positions from nunchi-grid; read from the board when missing")
+    ap.add_argument("--grid", default=str(GRID_FILE), help="tick positions from nunchi-grid; read from the board when missing")
     ap.add_argument("--agents", default="Marc,Kangmin", help="embodiments, comma separated, as name[:tool]")
     ap.add_argument("--voice", default="Samantha", help="macOS voice for spoken instructions")
     ap.add_argument("--mute", action="store_true", help="no spoken instructions")

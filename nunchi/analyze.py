@@ -1,4 +1,4 @@
-"""One frame in, board corners and dirt boxes out: the algorithm behind protocol/algorithm-server.md."""
+"""One frame in, board corners and dirt boxes out: the algorithm behind docs/protocol.md."""
 
 from __future__ import annotations
 

@@ -1,8 +1,12 @@
 [project]
 name = "nunchi"
 version = "0.1.0"
-description = "Algorithm server for nunchi: finds the board and the ink to erase in a camera frame."
+description = "Camera-verified task interface for any embodiment: a person or a robot erases a whiteboard, and the camera labels every attempt."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Marc Duboc" }, { name = "Kangmin" }]
+keywords = ["robotics", "computer-vision", "opencv", "data-flywheel", "embodied-ai"]
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.162.2",
@@ -11,6 +15,9 @@ dependencies = [
     "pillow>=10.0",
     "uvicorn>=0.30",
 ]
+
+[project.urls]
+Repository = "https://github.com/promaaa/nunchi"
 
 [project.scripts]
 nunchi = "nunchi.server:main"
@@ -22,6 +29,9 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=8.0",
 ]
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
 
 [build-system]
 requires = ["hatchling"]

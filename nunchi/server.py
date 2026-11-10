@@ -1,4 +1,4 @@
-"""The algorithm server of protocol/algorithm-server.md: POST /analyze and GET /health."""
+"""The algorithm server of docs/protocol.md: POST /analyze and GET /health."""
 
 from __future__ import annotations
 
@@ -19,9 +19,10 @@ from starlette.concurrency import run_in_threadpool
 
 from . import __version__
 from .analyze import Analysis, Grid, analyze, annotate, cell_names, cells_covered, side_by_side
+from .grid import GRID_FILE
 
 MAX_BODY_BYTES = 5 * 1024 * 1024
-RECORD_EVERY_S = 1.0  # the monitor may send faster than the 1 fps the protocol expects; Drive syncs every file
+RECORD_EVERY_S = 1.0  # keep at most one recorded frame per second, the monitor can send faster
 
 Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
 Point = tuple[Fraction, Fraction]
@@ -45,7 +46,7 @@ class AnalyzeResponse(BaseModel):
     regions: list[Region] = Field(default_factory=list)
     version: int = 1
     frame: FrameSize | None = None
-    reason: str | None = None  # proposed in section 12: no_board | occluded
+    reason: str | None = None  # why corners is null: no_board or occluded
 
 
 def create_app(grid: Grid | None = None, debug_dir: Path | None = None, record_dir: Path | None = None) -> FastAPI:
@@ -126,10 +127,10 @@ def lan_address() -> str:
 def main(argv: list[str] | None = None) -> None:
     import uvicorn
 
-    ap = argparse.ArgumentParser(prog="nunchi", description="Algorithm server called by the app server (protocol/algorithm-server.md).")
+    ap = argparse.ArgumentParser(prog="nunchi", description="Algorithm server called by the app server (docs/protocol.md).")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--grid", default="grid.json", help="tick positions from nunchi-grid (ignored when the file is missing)")
+    ap.add_argument("--grid", default=str(GRID_FILE), help="tick positions from nunchi-grid (ignored when the file is missing)")
     ap.add_argument("--debug-dir", default=os.environ.get("DEBUG_DIR"), help="write each frame and annotated board here")
     ap.add_argument("--record", default=None, help="keep every frame and annotated board in a new session folder here")
     args = ap.parse_args(argv)

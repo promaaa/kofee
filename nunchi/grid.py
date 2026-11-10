@@ -12,13 +12,15 @@ import cv2
 from .board import Board, find_ticks, uniform_edges
 from .marks import find_corners
 
+GRID_FILE = Path(__file__).with_name("grid.json")
+
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="nunchi-grid", description="Read the graduation ticks from a photo of the board.")
     ap.add_argument("image", help="a frame from the monitor camera, nobody in front of the board")
     ap.add_argument("--cols", type=int, default=8, help="columns to assume when no ticks are found")
     ap.add_argument("--rows", type=int, default=4, help="rows to assume when no ticks are found")
-    ap.add_argument("--out", default="grid.json")
+    ap.add_argument("--out", default=str(GRID_FILE), help="where to write the grid (default: the packaged grid.json)")
     args = ap.parse_args(argv)
 
     img = cv2.imread(args.image)

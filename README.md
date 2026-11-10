@@ -12,6 +12,7 @@ A hackathon project from **c0mpiled-17 Seoul** (9 November 2026), on the Y Combi
 
 [![c0mpiled-17 Seoul](https://img.shields.io/badge/c0mpiled--17-Seoul-1a1a1a?style=flat-square&labelColor=ff6b1a)](https://luma.com/compiled-8lsr)
 [![YC RFS](https://img.shields.io/badge/YC%20RFS-Physical%20World%20OS-f26625?style=flat-square&logo=ycombinator&logoColor=white)](https://www.ycombinator.com/rfs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776ab?style=flat-square&logo=python&logoColor=white)](#quick-start)
 [![OpenCV](https://img.shields.io/badge/OpenCV-vision-5c3ee8?style=flat-square&logo=opencv&logoColor=white)](nunchi/analyze.py)
 [![Bun](https://img.shields.io/badge/Bun-app%20server-000000?style=flat-square&logo=bun&logoColor=white)](apps/nunchi/)
@@ -93,7 +94,7 @@ The vision code is in [`nunchi/analyze.py`](nunchi/analyze.py). It treats every 
 2. It warps the board to a top-down view using the four corners.
 3. If a large dark area covers the board, someone is probably standing in front of it, and the frame is skipped.
 4. Ink is any stroke darker than the board around it. We had to clip reflections from the ceiling lights and ignore specks under 40 px. Colour is checked per stroke, so the black tape, ticks and letters are not counted as dirt.
-5. Each ink blob gets a bounding box, which is mapped onto the hand-drawn grid. The grid lines were measured once and saved in [`grid.json`](grid.json).
+5. Each ink blob gets a bounding box, which is mapped onto the hand-drawn grid. The grid lines were measured once and saved in [`nunchi/grid.json`](nunchi/grid.json).
 
 <p align="center"><img src="docs/img/pipeline.png" alt="Pipeline: the camera sends a frame to the vision step, which finds the dirty cells. The planner turns each cell into a task and sends it to an embodiment, a person or a robot. The attempt changes the board and the camera sees the result. The first clear frame decides pass, retry with the next embodiment, or give up after 3, and the planner writes the episode log" width="100%"/></p>
 
@@ -110,7 +111,7 @@ uv run pytest                                                  # tests on synthe
 <summary><b>Full stack with the phone app</b> (<a href="https://github.com/akan-team/akanjs">Akan.js</a> on Bun)</summary>
 
 ```bash
-uv run nunchi --grid grid.json                                  # algorithm server, prints VISION_API_URL
+uv run nunchi                                                   # algorithm server, prints VISION_API_URL
 bun install && VISION_API_URL=http://<host>:8000 bun run dev   # app server: Monitor and Eraser pages
 ```
 
@@ -123,9 +124,9 @@ After you redraw the grid ticks, measure them again from a clear photo: `uv run 
 | Path | Role |
 |---|---|
 | [`nunchi/`](nunchi/) | Vision: L marks, rectification, occlusion guard, ink, grid |
-| [`nunchi/standalone/`](nunchi/standalone/) | All-in-one demo: task interface, planner, verifier, episode log ([API](docs/standalone-api.md)) |
+| [`nunchi/standalone/`](nunchi/standalone/) | All-in-one demo: task interface, planner, verifier, episode log |
 | [`apps/nunchi/`](apps/nunchi/) | App server, Monitor and Eraser pages |
-| [`protocol/`](protocol/algorithm-server.md) | Contract between the app server and the algorithm server |
+| [`docs/`](docs/) | [Algorithm server protocol](docs/protocol.md) and [standalone API](docs/standalone-api.md) |
 | [`tests/`](tests/) | Protocol, standalone and real-frame tests |
 
 ## Team
@@ -134,3 +135,7 @@ After you redraw the grid ticks, measure them again from a clear photo: `uv run 
 - **Kangmin** ([@aka-bassman](https://github.com/aka-bassman)): app server, Monitor and Eraser pages.
 
 We built this at [c0mpiled-17 Seoul](https://luma.com/compiled-8lsr), held at the COEX Startup Branch and organised by Transpose Platform. The topic came from the [Y Combinator Request for Startups](https://www.ycombinator.com/rfs).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
