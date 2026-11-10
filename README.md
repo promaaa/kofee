@@ -6,9 +6,9 @@
 
 # NUNCHI
 
-**The data flywheel for robots.<br/>One task interface for any embodiment, and a camera that labels every attempt.**
+**The data flywheel for robots.**
 
-Built in five hours at **c0mpiled-17 Seoul** (9 November 2026) on the Y Combinator Request for Startups topic<br/>*New Operating System for the Physical World*.
+A hackathon project from **c0mpiled-17 Seoul** (9 November 2026), on the Y Combinator Request for Startups topic<br/>*New Operating System for the Physical World*.
 
 [![c0mpiled-17 Seoul](https://img.shields.io/badge/c0mpiled--17-Seoul-1a1a1a?style=flat-square&labelColor=ff6b1a)](https://luma.com/compiled-8lsr)
 [![YC RFS](https://img.shields.io/badge/YC%20RFS-Physical%20World%20OS-f26625?style=flat-square&logo=ycombinator&logoColor=white)](https://www.ycombinator.com/rfs)
@@ -19,33 +19,29 @@ Built in five hours at **c0mpiled-17 Seoul** (9 November 2026) on the Y Combinat
 
 <a href="https://youtu.be/Qo3HoJxw4Gs"><img src="docs/img/teaser.gif" alt="Camera view of the demo: Marc erases the board, the camera overlays the grid and marks cell C2 as still dirty, he erases again and the grid comes back empty" width="100%"/></a>
 
-<sub>The camera view during the demo. Click on the gif to watch the 80-second hackathon video.</sub>
+<sub>Camera view during the demo. Click to watch the video.</sub>
 
 </div>
 
 ## The problem
 
-Tesla keeps retraining its driving model on the data its cars collect. That loop is a **data flywheel**. Robotics companies want the same loop, but two things block it:
+Tesla gets better because its cars send driving data back, the model is retrained on it, and the new model drives the cars again. Robotics companies would like the same loop, a data flywheel, but two things get in the way.
 
 <img align="right" src="docs/img/problem.jpg" alt="Diagram: one model in the middle of a drive, collect, retrain loop. A robot arm, a mobile base and a robot dog each speak a different action language, and a person labels every attempt by hand" width="42%"/>
 
-1. **Every robot speaks its own action language.** Joint angles for an arm, `v, ω` for a mobile base, PWM for a dog. A task written for one body does not transfer to another.
-2. **A person must label every attempt.** Somebody has to watch and say whether it worked, so data collection stops when that person stops.
+First, each robot is commanded differently: joint angles for an arm, `v, ω` for a mobile base, PWM for a robot dog. A task written for one of them means nothing to the others.
 
-NUNCHI (눈치, *knowing just by watching*) removes both blocks on a real task: keep a glass whiteboard clean.
+Second, someone has to watch each attempt and write down whether it worked. Data only comes in as fast as people can label it.
+
+We had five hours to show a way around both problems, so we picked a small task that a camera can check on its own: keeping a whiteboard clean. The name comes from the Korean word 눈치 (nunchi), roughly "knowing what is going on just by watching".
 
 <br clear="right"/>
 
-## Highlights
+## What we built
 
-- **One task, any body.** The camera turns ink into dirty cells (`A1` … `H4`). Each cell becomes one task in board coordinates, with its own success test: ink under 0.25 % of the cell. The planner translates it for each embodiment.
-- **The camera is the judge.** Nobody reports success. The first clear frame after the attempt decides: pass, or retry, handed to the next embodiment (up to 3 attempts).
-- **Every attempt is a labelled episode.** Who did it, with which tool, how long it took, before and after crops, and the verdict go to `runs/<session>/episodes.jsonl`.
-- **Fast and stateless.** One frame takes about 30 ms on a laptop CPU, at 960 px. No training data, no GPU.
+A camera watches a glass whiteboard with an 8 × 4 grid drawn on it. Anything written in blue counts as dirt. When the camera sees ink in a cell, the planner creates a task for that cell, for example `erase C2`. The task is defined only by the cell's position on the board and a success threshold (less than 0.25 % of the cell still covered in ink), so it does not depend on who or what will do it.
 
-## One task, two languages
-
-The task is written once, in board coordinates. The planner then states it for each embodiment:
+The planner then phrases the task for whoever is available. A person hears a sentence, and a robot arm would get a motion command:
 
 ```text
 task    erase C2          success: ink_ratio < 0.25%
@@ -53,30 +49,32 @@ human   "Marc, erase cell C2."
 robot   arm.wipe(x=251..387mm, y=117..260mm, passes=3)
 ```
 
-## Live demo
+Nobody tells the system that the job is done. Once the person steps away, the next clear camera frame is compared with the threshold. If ink is left, the task is retried, possibly by someone else, up to three times. Each attempt is saved to `runs/<session>/episodes.jsonl` with who did it, the tool, the duration, crops of the cell before and after, and the result.
 
-We had no robots at the hackathon, so we were the robots: two people, two tools (an eraser and a tissue), the same tasks.
+## Demo
+
+We had no robot at the hackathon, so the two of us played the embodiments, one with an eraser and one with a tissue.
 
 <table>
   <tr>
     <td width="33%" align="center" valign="top">
       <img src="docs/img/step1.jpg" alt="Camera view: the grid is drawn on the board and cells B2, C2, D1 and D2 are marked dirty" width="100%"/>
-      <br/><sub><b>1. Detect.</b> The camera finds ink in B2, C2, D1 and D2. C2 becomes the task.</sub>
+      <br/><sub>The camera finds ink in B2, C2, D1 and D2.</sub>
     </td>
     <td width="33%" align="center" valign="top">
       <img src="docs/img/step2.jpg" alt="Camera view: Marc erases the board with an eraser" width="100%"/>
-      <br/><sub><b>2. Attempt.</b> Marc erases. The scan is skipped while he is in front of the board.</sub>
+      <br/><sub>Marc erases C2. Frames are ignored while he blocks the board.</sub>
     </td>
     <td width="33%" align="center" valign="top">
       <img src="docs/img/step3.jpg" alt="Camera view: the grid is empty, no cell is marked" width="100%"/>
-      <br/><sub><b>3. Verify.</b> The first clear frame shows a clean grid. C2 passes.</sub>
+      <br/><sub>The next clear frame shows C2 clean.</sub>
     </td>
   </tr>
 </table>
 
-The episode log of this run, as shown in the video. The camera wrote every label:
+In the run shown in the video, Marc needed three tries on C2. The log below was filled in by the system, not by us:
 
-| Episode | Agent | Tool | Task | What the camera saw | Verdict |
+| Episode | Agent | Tool | Task | What the camera saw | Result |
 |:-:|---|---|---|---|:-:|
 | 1 | Marc | eraser | erase C2 | ink left | fail |
 | 2 | Marc | eraser | erase C2 | ink left | fail |
@@ -86,17 +84,17 @@ The episode log of this run, as shown in the video. The camera wrote every label
 
 <div align="center">
 <img src="docs/img/cells.jpg" alt="Rectified top-down view of the board with the 8 by 4 grid. The blue writing c0mpiled-17 NUNCHI is boxed in pink and cells B1 to E2 are shaded orange" width="70%"/>
-<br/><sub>What the algorithm reports: the rectified board, ink boxes in pink, dirty cells B1 to E2 in orange.</sub>
+<br/><sub>The board seen from above after rectification. Ink is boxed in pink and the dirty cells are shaded orange.</sub>
 </div>
 <br/>
 
-Each frame is analysed on its own, with no state ([`kofee/analyze.py`](kofee/analyze.py)):
+The vision code is in [`kofee/analyze.py`](kofee/analyze.py). It treats every frame independently and takes about 30 ms for a 960 px frame on a laptop CPU, with no learned model.
 
-1. **Find the board.** Four black L tape marks frame it. When a mark is hidden, or the quadrilateral disagrees with the arms of the marks, the frame is rejected.
-2. **Rectify** the board to a top-down view with the homography of the four corners.
-3. **Skip occluded frames.** A large dark region is a person or an eraser, so the scan is skipped. No task is judged through a sweater.
-4. **Find the ink.** A pixel is ink when it is darker than its local background. Ceiling-light reflections and glare streaks are clipped, and specks under 40 px are ignored. Colour is decided per stroke, so the black frame, ticks and labels are never dirt.
-5. **Map to cells.** Each blob gets one tight box, mapped onto the hand-drawn 8 × 4 grid measured in [`grid.json`](grid.json).
+1. It looks for the four black L-shaped tape marks at the corners of the board. If one is hidden, or the four marks do not form a plausible rectangle, the frame is dropped.
+2. It warps the board to a top-down view using the four corners.
+3. If a large dark area covers the board, someone is probably standing in front of it, and the frame is skipped.
+4. Ink is any stroke darker than the board around it. We had to clip reflections from the ceiling lights and ignore specks under 40 px. Colour is checked per stroke, so the black tape, ticks and letters are not counted as dirt.
+5. Each ink blob gets a bounding box, which is mapped onto the hand-drawn grid. The grid lines were measured once and saved in [`grid.json`](grid.json).
 
 <p align="center"><img src="docs/img/pipeline.png" alt="Pipeline: the camera sends a frame to the vision step, which finds the dirty cells. The planner turns each cell into a task and sends it to an embodiment, a person or a robot. The attempt changes the board and the camera sees the result. The first clear frame decides pass, retry with the next embodiment, or give up after 3, and the planner writes the episode log" width="100%"/></p>
 
@@ -133,7 +131,7 @@ After you redraw the grid ticks, measure them again from a clear photo: `uv run 
 
 ## Team
 
-- **Marc Duboc** ([@promaaa](https://github.com/promaaa)): vision, planner, verifier.
+- **Marc Duboc** ([@promaaa](https://github.com/promaaa)): vision, planner and verification.
 - **Kangmin** ([@aka-bassman](https://github.com/aka-bassman)): app server, Monitor and Eraser pages.
 
-Built at [c0mpiled-17 Seoul](https://luma.com/compiled-8lsr), COEX Startup Branch, organised by Transpose Platform. The challenge topic comes from the [Y Combinator Request for Startups](https://www.ycombinator.com/rfs). The project code name is `kofee`.
+We built this at [c0mpiled-17 Seoul](https://luma.com/compiled-8lsr), held at the COEX Startup Branch and organised by Transpose Platform. The topic came from the [Y Combinator Request for Startups](https://www.ycombinator.com/rfs). `kofee` was the code name during the hackathon and is still the name of the Python package.
