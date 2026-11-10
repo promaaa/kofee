@@ -116,7 +116,7 @@ sequenceDiagram
 ## Quick start
 
 ```bash
-git clone https://github.com/promaaa/kofee.git && cd kofee
+git clone https://github.com/promaaa/nunchi.git && cd nunchi
 uv sync
 uv run kofee-standalone --agents Marc:eraser,Kangmin:tissue   # webcam, planner, voice, episode log
 uv run pytest                                                  # tests on synthetic and real frames
